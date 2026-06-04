@@ -1,0 +1,40 @@
+{
+    "name":  "smithue-cli",
+    "version":  "0.7.0",
+    "type":  "module",
+    "main":  "dist/cli.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "MIGRATION.md",
+    "LICENSE"
+  ],
+    "devDependencies":  {
+                            "@types/node":  "^20.0.0",
+                            "typescript":  "^5.3.0",
+                            "vitest":  "^1.0.0"
+                        },
+    "dependencies":  {
+                         "commander":  "^15.0.0"
+                     },
+    "bin":  {
+                "smithue-cli":  "./dist/cli.js"
+            },
+    "engines":  {
+                    "node":  "\u003e=18"
+                },
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "license":  "MIT",
+    "description":  "CLI tool for controlling Unreal Engine editor via SmithUE plugin",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/123dx-svg/smithue-cli.git"
+                   }
+}

@@ -1,0 +1,27 @@
+name: Smoke Test
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    strategy:
+      matrix:
+        os: [windows-2022, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run build
+      - run: npm pack
+      - name: Install from pack and verify version
+        shell: bash
+        run: |
+          PKG=$(ls smithue-cli-*.tgz)
+          npm install -g "$PKG"
+          smithue-cli --version
