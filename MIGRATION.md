@@ -25,3 +25,24 @@ The transition from MCP tools to CLI commands is direct. Most commands follow a 
 The MCP version used sessions for some operations. The CLI is entirely stateless. You don't need to manage sessions or connections. Each command automatically discovers the running Unreal Engine instance and executes the request.
 
 If you have multiple projects open, use the `--project` or `--pid` flags to target a specific instance.
+
+---
+
+## v0.7.1 — `purge` subcommand (additive, non-breaking)
+
+### Added: `purge` subcommand
+
+A new `smithue-cli purge` command is available for full uninstall cleanup. It removes the entire `%LOCALAPPDATA%\.smithue\` directory — including all portfiles and (with `--force`) unknown files — as the final step when uninstalling the CLI.
+
+This is a purely additive change. No existing commands or behavior have changed. No migration steps are required.
+
+**Quick reference:**
+```bash
+smithue-cli purge --dry-run  # preview what would be removed
+smithue-cli purge -y          # non-interactive full cleanup
+```
+
+See the [Uninstall section in README.md](./README.md#uninstall) for full flag reference and exit codes.
+
+For routine cleanup during normal use (removing stale portfiles only), continue using `smithue-cli prune`.
+
