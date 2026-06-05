@@ -24,7 +24,7 @@ describe('T26 dry-run CLI fixture tests', () => {
     const result = spawnSync('node', [cliPath, '--help'], { encoding: 'utf-8' });
     expect(result.status).toBe(0);
     const output = result.stdout + result.stderr;
-    for (const cmd of ['exec', 'list', 'search', 'status', 'prune']) {
+    for (const cmd of ['exec', 'list', 'search', 'status', 'prune', 'purge']) {
       expect(output).toContain(cmd);
     }
   });

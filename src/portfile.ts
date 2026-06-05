@@ -46,7 +46,7 @@ export interface DiscoverOpts {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getPortfileDir(): string {
+export function getPortfileDir(): string {
   const localAppData = process.env['LOCALAPPDATA'];
   if (!localAppData) {
     throw new SmithUEError(
@@ -57,7 +57,7 @@ function getPortfileDir(): string {
   return join(localAppData, '.smithue');
 }
 
-async function readPortfiles(dir: string): Promise<Array<{ file: string; data: PortfileData }>> {
+export async function readPortfiles(dir: string): Promise<Array<{ file: string; data: PortfileData }>> {
   let entries: string[];
   try {
     entries = await readdir(dir);

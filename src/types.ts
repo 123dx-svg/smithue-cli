@@ -38,3 +38,21 @@ export interface SmithUEClientConfig {
   port: number;
   timeout: number;
 }
+
+export interface PurgeOptions {
+  force: boolean;
+  dryRun: boolean;
+  yes: boolean;
+}
+
+export interface PurgeResult {
+  status: 'purged' | 'nothing_to_purge' | 'partial' | 'cancelled' | 'dry_run';
+  path: string;
+  scanned: number;
+  deleted: number;
+  skipped_live: number;
+  failed: number;
+  directory_removed: boolean;
+  errors: string[];
+  warnings: string[];
+}
