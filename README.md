@@ -45,6 +45,7 @@ npx smithue-cli <command>
 | `search` | Find assets or objects by string |
 | `status` | Show running UE instances and their ports |
 | `prune` | Remove stale port files from crashed instances |
+| `purge` | Remove the entire `.smithue` directory (full uninstall cleanup) |
 
 ## Examples
 List all Material assets:
@@ -65,6 +66,35 @@ smithue-cli exec my_action '{"key": "value"}'
 ## Security Notes
 - Binds to 127.0.0.1 only. No external network exposure.
 - Port files in `%LOCALAPPDATA%\.smithue` are ACL-restricted to the current Windows user.
+
+## Uninstall
+
+Use `purge` to fully clean up after removing SmithUE. Unlike `prune` (which removes stale port files during normal use), `purge` deletes the entire `%LOCALAPPDATA%\.smithue\` directory as the final step of uninstalling the CLI.
+
+```bash
+smithue-cli purge          # interactive: lists files and asks for confirmation
+smithue-cli purge --dry-run  # preview what would be deleted
+smithue-cli purge -y       # non-interactive full purge (CI/scripts)
+```
+
+### Options
+
+| Flag | Description |
+|---|---|
+| `--force` | Skip liveness check; delete all files including non-portfiles |
+| `--dry-run` | Show what would be deleted without making changes |
+| `-y, --yes` | Skip the confirmation prompt (required when stdin is not a TTY) |
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success (including cancelled and dry-run) |
+| 1 | Non-interactive context without `-y` |
+| 2 | `LOCALAPPDATA` not set (Windows-only command) |
+| 3 | `.smithue` is a symlink or junction — refused for safety |
+
+For routine cleanup of stale portfiles without removing the directory, use `smithue-cli prune` instead.
 
 ## Known Limitations
 - Version 1 is Windows-only due to portfile path conventions.
