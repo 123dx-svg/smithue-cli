@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name('smithue')
   .description('CLI for SmithUE Unreal Engine plugin')
-  .version('0.7.0')
+  .version('0.7.1')
   .option('--pid <pid>', 'target SmithUE instance by PID', parseInt)
   .option('--project <path>', 'target SmithUE instance by project path')
   .option('--port <port>', 'connect directly to port (skip discovery)', parseInt);
