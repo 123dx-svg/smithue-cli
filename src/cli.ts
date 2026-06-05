@@ -6,6 +6,7 @@ import { execCommand } from './commands/exec.js';
 import { listCommand } from './commands/list.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
+import { purge } from './commands/purge.js';
 import { printResult, printError } from './output.js';
 
 const program = new Command();
@@ -140,6 +141,23 @@ program
     }
 
     printResult({ scanned, pruned, kept });
+  });
+
+// ---------------------------------------------------------------------------
+// purge
+// ---------------------------------------------------------------------------
+program
+  .command('purge')
+  .description('Remove the .smithue directory entirely (full uninstall cleanup)')
+  .option('--force', 'skip liveness check and delete all files including unknown ones')
+  .option('--dry-run', 'show what would be deleted without modifying anything')
+  .option('-y, --yes', 'skip confirmation prompt (required for non-interactive use)')
+  .action(async (cmdOpts: { force?: boolean; dryRun?: boolean; yes?: boolean }) => {
+    await purge({
+      force: cmdOpts.force ?? false,
+      dryRun: cmdOpts.dryRun ?? false,
+      yes: cmdOpts.yes ?? false,
+    });
   });
 
 // ---------------------------------------------------------------------------
