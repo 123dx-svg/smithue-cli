@@ -7,6 +7,7 @@ import { listCommand } from './commands/list.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
 import { purge } from './commands/purge.js';
+import { upgradeCommand } from './commands/upgrade.js';
 import { printResult, printError } from './output.js';
 
 const program = new Command();
@@ -158,6 +159,16 @@ program
       dryRun: cmdOpts.dryRun ?? false,
       yes: cmdOpts.yes ?? false,
     });
+  });
+
+// ---------------------------------------------------------------------------
+// upgrade
+// ---------------------------------------------------------------------------
+program
+  .command('upgrade')
+  .description('Update smithue-cli globally via npm')
+  .action(async () => {
+    await upgradeCommand();
   });
 
 // ---------------------------------------------------------------------------
