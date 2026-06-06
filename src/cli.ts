@@ -8,7 +8,7 @@ import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
 import { purge } from './commands/purge.js';
 import { upgradeCommand } from './commands/upgrade.js';
-import { printResult, printError } from './output.js';
+import { printResult, printError, setOutputOptions } from './output.js';
 
 const program = new Command();
 
@@ -18,7 +18,14 @@ program
   .version('0.7.1')
   .option('--pid <pid>', 'target SmithUE instance by PID', parseInt)
   .option('--project <path>', 'target SmithUE instance by project path')
-  .option('--port <port>', 'connect directly to port (skip discovery)', parseInt);
+  .option('--port <port>', 'connect directly to port (skip discovery)', parseInt)
+  .option('--terse', 'emit minified JSON output')
+  .option('--out <file>', 'write result to file instead of stdout');
+
+program.hook('preAction', () => {
+  const opts = program.opts<{ terse?: boolean; out?: string }>();
+  setOutputOptions({ terse: opts.terse, outPath: opts.out });
+});
 
 // ---------------------------------------------------------------------------
 // exec
