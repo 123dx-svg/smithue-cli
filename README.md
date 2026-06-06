@@ -44,8 +44,53 @@ npx smithue-cli <command>
 | `list` | List available domains or objects |
 | `search` | Find assets or objects by string |
 | `status` | Show running UE instances and their ports |
+| `batch` | Run multiple read-only commands sequentially |
+| `upgrade` | Update the CLI to the latest version via npm |
 | `prune` | Remove stale port files from crashed instances |
 | `purge` | Remove the entire `.smithue` directory (full uninstall cleanup) |
+
+## Output Modes
+
+By default, `smithue-cli` outputs pretty-printed JSON (2-space indent).
+
+- `--terse` — Minified JSON (no whitespace). Recommended for AI agents to save tokens.
+- `--out <file>` — Write result to file; stdout is silent. Useful for large responses.
+- Combined: `smithue-cli status --terse --out result.json`
+
+## Batch Mode
+
+Run multiple read-only commands in a single call:
+
+```bash
+smithue-cli batch "status" "list"
+```
+
+Returns a JSON array: `[{command, ok, data?, error?}, ...]`
+
+Supported commands: `status`, `list`, `search`. Sequential execution only.
+
+## Upgrading
+
+```bash
+smithue-cli upgrade
+```
+
+Updates `smithue-cli` to the latest version via npm. A warning is printed to stderr if the CLI version does not match the plugin version.
+
+## AI Agent Integration
+
+Recommended flags for AI agent usage:
+
+```bash
+# Minified output saves tokens
+smithue-cli status --terse
+
+# Write large responses to file, keep context clean
+smithue-cli list --out tools.json
+
+# Multiple queries in one call
+smithue-cli batch "status" "list" --terse
+```
 
 ## Examples
 List all Material assets:
