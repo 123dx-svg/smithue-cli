@@ -9,6 +9,7 @@ import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
 import { purge } from './commands/purge.js';
 import { upgradeCommand } from './commands/upgrade.js';
+import { batchCommand } from './commands/batch.js';
 import { printResult, printError, setOutputOptions } from './output.js';
 
 const program = new Command();
@@ -179,6 +180,17 @@ program
   .description('Update smithue-cli globally via npm')
   .action(async () => {
     await upgradeCommand();
+  });
+
+// ---------------------------------------------------------------------------
+// batch
+// ---------------------------------------------------------------------------
+program
+  .command('batch [commands...]')
+  .description('Execute multiple read-only commands sequentially')
+  .action(async (commands: string[] = []) => {
+    const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
+    await batchCommand(commands, globals);
   });
 
 // ---------------------------------------------------------------------------
