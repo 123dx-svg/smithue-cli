@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { readdir, readFile, unlink } from 'fs/promises';
+import { createRequire } from 'module';
 import { join } from 'path';
 import { execCommand } from './commands/exec.js';
 import { listCommand } from './commands/list.js';
@@ -11,11 +12,13 @@ import { upgradeCommand } from './commands/upgrade.js';
 import { printResult, printError, setOutputOptions } from './output.js';
 
 const program = new Command();
+const require = createRequire(import.meta.url);
+const { version: cliVersion } = require('../package.json') as { version: string };
 
 program
   .name('smithue')
   .description('CLI for SmithUE Unreal Engine plugin')
-  .version('0.7.1')
+  .version(cliVersion)
   .option('--pid <pid>', 'target SmithUE instance by PID', parseInt)
   .option('--project <path>', 'target SmithUE instance by project path')
   .option('--port <port>', 'connect directly to port (skip discovery)', parseInt)
@@ -44,7 +47,7 @@ program
         return;
       }
     }
-    await execCommand(command, parsedParams, globals);
+    await execCommand(command, parsedParams, { ...globals, cliVersion });
   });
 
 // ---------------------------------------------------------------------------
@@ -55,7 +58,7 @@ program
   .description('List available tools, optionally filtered by domain')
   .action(async (domain: string | undefined) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
-    await listCommand(domain, globals);
+    await listCommand(domain, { ...globals, cliVersion });
   });
 
 // ---------------------------------------------------------------------------
@@ -66,7 +69,7 @@ program
   .description('Search tools by keyword')
   .action(async (keyword: string) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
-    await searchCommand(keyword, globals);
+    await searchCommand(keyword, { ...globals, cliVersion });
   });
 
 // ---------------------------------------------------------------------------
@@ -78,7 +81,7 @@ program
   .option('--wait <seconds>', 'wait up to N seconds for editor to be ready', parseInt)
   .action(async (cmdOpts: { wait?: number }) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
-    await statusCommand({ ...globals, wait: cmdOpts.wait });
+    await statusCommand({ ...globals, wait: cmdOpts.wait, cliVersion });
   });
 
 // ---------------------------------------------------------------------------
