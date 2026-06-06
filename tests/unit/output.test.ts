@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { printResult, printError } from '../../src/output';
+import { printResult, printError, setOutputOptions } from '../../src/output';
 import { SmithUEError } from '../../src/portfile';
+import fs from 'node:fs';
 
 describe('printResult', () => {
   let stdoutSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    // Reset options before each test
+    setOutputOptions({ terse: false, outPath: undefined });
   });
 
   afterEach(() => {
@@ -24,6 +27,63 @@ describe('printResult', () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
     printResult({ ok: true });
     expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('terse=true writes minified JSON to stdout', () => {
+    setOutputOptions({ terse: true });
+    const data = { status: 'ok', count: 3 };
+    printResult(data);
+    expect(stdoutSpy).toHaveBeenCalledOnce();
+    expect(stdoutSpy).toHaveBeenCalledWith(JSON.stringify(data) + '\n');
+  });
+
+  it('outPath set → writes to file, stdout is silent', () => {
+    const outPath = 'C:/Users/dingxiao/AppData/Local/Temp/opencode/test-out.json';
+    const writeFileSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation(() => undefined);
+    const statSyncSpy = vi.spyOn(fs, 'statSync').mockReturnValue({ isDirectory: () => false } as fs.Stats);
+
+    setOutputOptions({ outPath });
+    const data = { hello: 'world' };
+    printResult(data);
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(writeFileSpy).toHaveBeenCalledWith(outPath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+
+    writeFileSpy.mockRestore();
+    statSyncSpy.mockRestore();
+  });
+
+  it('terse=true + outPath → writes minified JSON to file, stdout silent', () => {
+    const outPath = 'C:/Users/dingxiao/AppData/Local/Temp/opencode/test-terse.json';
+    const writeFileSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation(() => undefined);
+    const statSyncSpy = vi.spyOn(fs, 'statSync').mockReturnValue({ isDirectory: () => false } as fs.Stats);
+
+    setOutputOptions({ terse: true, outPath });
+    const data = { status: 'ok', count: 3 };
+    printResult(data);
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(writeFileSpy).toHaveBeenCalledWith(outPath, JSON.stringify(data) + '\n', 'utf8');
+
+    writeFileSpy.mockRestore();
+    statSyncSpy.mockRestore();
+  });
+
+  it('outPath pointing to directory → writes error to stderr and exits non-zero', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
+    const statSyncSpy = vi.spyOn(fs, 'statSync').mockReturnValue({ isDirectory: () => true } as fs.Stats);
+
+    setOutputOptions({ outPath: '/some/dir' });
+    printResult({ data: 1 });
+
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(stderrSpy).toHaveBeenCalled();
+    expect(exitSpy).toHaveBeenCalledWith(1);
+
+    stderrSpy.mockRestore();
+    exitSpy.mockRestore();
+    statSyncSpy.mockRestore();
   });
 });
 
