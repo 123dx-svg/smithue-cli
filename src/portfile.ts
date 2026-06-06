@@ -34,6 +34,7 @@ export interface DiscoverResult {
   pid: number;
   project: string;
   project_name: string;
+  plugin_version?: string;
 }
 
 export interface DiscoverOpts {
@@ -188,5 +189,6 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
     pid: data.pid,
     project: data.project,
     project_name: data.project_name,
+    plugin_version: data.plugin_version,
   };
 }

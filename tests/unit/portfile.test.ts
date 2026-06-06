@@ -41,6 +41,14 @@ const pf2 = {
   plugin_version: '0.7.0',
 };
 
+const pfWithoutPluginVersion = {
+  port: 13723,
+  pid: 1003,
+  project: 'C:/Projects/GameC/GameC.uproject',
+  project_name: 'GameC',
+  started_at: '2024-01-01T00:00:00Z',
+};
+
 function okResponse() {
   return { status: 200, ok: true };
 }
@@ -110,11 +118,24 @@ describe('discoverPort', () => {
         pid: pf1.pid,
         project: pf1.project,
         project_name: pf1.project_name,
+        plugin_version: pf1.plugin_version,
       });
       expect(mockFetch).toHaveBeenCalledWith(
         `http://127.0.0.1:${pf1.port}/ready`,
         expect.objectContaining({ signal: expect.anything() }),
       );
+    });
+
+    it('returns undefined plugin_version when missing from portfile data', async () => {
+      setupSinglePortfile(pfWithoutPluginVersion as typeof pf1);
+      const result = await discoverPort({});
+      expect(result).toEqual({
+        port: pfWithoutPluginVersion.port,
+        pid: pfWithoutPluginVersion.pid,
+        project: pfWithoutPluginVersion.project,
+        project_name: pfWithoutPluginVersion.project_name,
+        plugin_version: undefined,
+      });
     });
 
     it('never uses localhost in liveness URL', async () => {
