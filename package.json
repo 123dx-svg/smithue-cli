@@ -6,13 +6,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "tsc -p tsconfig.build.json --watch"
   },
   "files": [
-    "dist",
-    "README.md",
-    "MIGRATION.md",
-    "LICENSE"
+    "dist/",
+    "package.json",
+    "README.md"
   ],
     "devDependencies":  {
                             "@types/node":  "^20.0.0",
