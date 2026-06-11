@@ -183,4 +183,48 @@ describe('SmithUEClient', () => {
       expect(headers['X-SmithUE-Session']).toBeUndefined();
     });
   });
+
+  describe('error taxonomy (RED — will turn GREEN in task 9)', () => {
+    it('AbortError produces message containing "timed out"', async () => {
+      const abortErr = Object.assign(new Error('aborted'), { name: 'AbortError' });
+      vi.spyOn(global, 'fetch').mockRejectedValue(abortErr);
+      const client = makeClient();
+      const err = await client.execute('ping').catch(e => e as Error);
+      expect(err.message.toLowerCase()).toContain('timed out');
+    });
+
+    it('ECONNREFUSED produces message containing "unreachable"', async () => {
+      const connErr = new Error('connect ECONNREFUSED 127.0.0.1:13721');
+      vi.spyOn(global, 'fetch').mockRejectedValue(connErr);
+      const client = makeClient();
+      const err = await client.execute('ping').catch(e => e as Error);
+      expect(err.message.toLowerCase()).toContain('unreachable');
+    });
+
+    it('timeout and refused produce distinct error messages', async () => {
+      const abortErr = Object.assign(new Error('aborted'), { name: 'AbortError' });
+      vi.spyOn(global, 'fetch').mockRejectedValue(abortErr);
+      const client = makeClient();
+      const timeoutMsg = await client.execute('ping').catch(e => (e as Error).message);
+
+      vi.restoreAllMocks();
+
+      const connErr = new Error('ECONNREFUSED');
+      vi.spyOn(global, 'fetch').mockRejectedValue(connErr);
+      const refusedMsg = await client.execute('ping').catch(e => (e as Error).message);
+
+      expect(timeoutMsg).not.toBe(refusedMsg);
+      expect(typeof timeoutMsg).toBe('string');
+      expect(typeof refusedMsg).toBe('string');
+    });
+
+    it('fetch failed with AbortError name is classified as timed-out not unreachable', async () => {
+      const err = Object.assign(new Error('fetch failed'), { name: 'AbortError' });
+      vi.spyOn(global, 'fetch').mockRejectedValue(err);
+      const client = makeClient();
+      const result = await client.execute('ping').catch(e => e as Error);
+      expect(result.message.toLowerCase()).toContain('timed out');
+      expect(result.message.toLowerCase()).not.toContain('unreachable');
+    });
+  });
 });

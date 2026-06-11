@@ -1,6 +1,7 @@
 import { readdir, readFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
+import { isProcessAlive } from './proc.js';
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -83,22 +84,41 @@ export async function readPortfiles(dir: string): Promise<Array<{ file: string; 
   return portfiles;
 }
 
-async function checkLiveness(port: number, filePath: string): Promise<void> {
+async function checkLiveness(port: number, filePath: string, pid: number): Promise<void> {
+  const timeoutMs = parseInt(process.env['SMITHUE_PROBE_TIMEOUT'] ?? '10000', 10);
+
   try {
     await fetch(`http://127.0.0.1:${port}/ready`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     // any HTTP response = server is alive (including 503 during startup)
     return;
-  } catch {
-    // network failure = truly stale
+  } catch (err) {
+    const error = err as Error;
+
+    // Timeout means the editor may be busy running a long command.
+    // Keep the portfile and treat the instance as alive/busy.
+    if (error.name === 'AbortError') {
+      return;
+    }
+
+    const processAlive = pid > 0 && isProcessAlive(pid);
+
+    if (processAlive) {
+      throw new SmithUEError(
+        `SmithUE instance on port ${port} is unreachable, but process ${pid} is still running. Try again or restart the editor.`,
+        2,
+      );
+    }
+
+    // Connection-level failure is stale only when the owning process is dead.
     try {
       await unlink(filePath);
     } catch {
       // best effort
     }
     throw new SmithUEError(
-      `SmithUE instance on port ${port} is not responding. Stale portfile removed.`,
+      `SmithUE instance on port ${port} is not responding and process ${pid} is dead. Stale portfile removed.`,
       2,
     );
   }
@@ -182,7 +202,7 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
 
   // 7. Single candidate — liveness check
   const { file, data } = candidates[0]!;
-  await checkLiveness(data.port, file);
+  await checkLiveness(data.port, file, data.pid);
 
   return {
     port: data.port,

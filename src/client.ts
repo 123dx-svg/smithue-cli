@@ -66,7 +66,14 @@ export class SmithUEClient {
   }
 
   private normalizeRequestError(err: unknown, command: string): Error {
-    const msg = (err as Error).message ?? '';
+    const error = err as Error;
+
+    // Check AbortError FIRST — AbortError can have any message including 'fetch failed'
+    if (error.name === 'AbortError') {
+      return new Error(`SmithUE plugin timed out. Command: ${command} (port: ${this.port})`);
+    }
+
+    const msg = error.message ?? '';
     if (
       msg.includes('ECONNREFUSED') ||
       msg.includes('fetch failed') ||
@@ -77,10 +84,6 @@ export class SmithUEClient {
       return new Error(
         `SmithUE plugin unreachable at ${this.host}:${this.port}. Start UE Editor with SmithUE plugin enabled.`
       );
-    }
-
-    if ((err as Error).name === 'AbortError') {
-      return new Error(`SmithUE plugin timed out. Command: ${command} (port: ${this.port})`);
     }
 
     return err instanceof Error ? err : new Error(String(err));

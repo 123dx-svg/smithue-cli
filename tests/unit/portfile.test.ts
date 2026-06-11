@@ -11,10 +11,16 @@ vi.mock('fs/promises', () => ({
   unlink: vi.fn(),
 }));
 
+vi.mock('../../src/proc.js', () => ({
+  isProcessAlive: vi.fn(),
+}));
+
 import * as fsp from 'fs/promises';
+import * as proc from '../../src/proc.js';
 const mockReaddir = vi.mocked(fsp.readdir);
 const mockReadFile = vi.mocked(fsp.readFile);
 const mockUnlink = vi.mocked(fsp.unlink);
+const mockIsProcessAlive = vi.mocked(proc.isProcessAlive);
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -126,6 +132,8 @@ describe('discoverPort', () => {
       );
     });
 
+    // NOTE: this test also covers legacy plugin compatibility — old plugins that
+    // never write plugin_version to their portfile are handled gracefully here.
     it('returns undefined plugin_version when missing from portfile data', async () => {
       setupSinglePortfile(pfWithoutPluginVersion as typeof pf1);
       const result = await discoverPort({});
@@ -269,6 +277,90 @@ describe('discoverPort', () => {
       expect(err).toBeInstanceOf(SmithUEError);
       expect(err.exitCode).toBe(2);
       expect(err.message.toLowerCase()).toContain('no smithue');
+    });
+  });
+
+  // ── Legacy plugin compatibility ──────────────────────────────────────────
+  describe('legacy plugin compatibility', () => {
+    it('portfile without plugin_version resolves successfully (legacy plugin)', async () => {
+      // Setup portfile without plugin_version field
+      const legacyPortfile = {
+        port: 13724,
+        pid: 2001,
+        project: 'C:/Projects/Legacy/Legacy.uproject',
+        project_name: 'LegacyGame',
+        started_at: '2024-01-01T00:00:00Z',
+        // no plugin_version!
+      };
+      mockReaddir.mockResolvedValue(['2001.port'] as any);
+      mockReadFile.mockResolvedValue(JSON.stringify(legacyPortfile) as any);
+      mockFetch.mockResolvedValue({ status: 200, ok: true });
+
+      const result = await discoverPort({});
+      expect(result.port).toBe(13724);
+      expect(result.pid).toBe(2001);
+      expect(result.plugin_version).toBeUndefined(); // graceful — no crash
+      expect(mockUnlink).not.toHaveBeenCalled();
+    });
+
+    it('old plugin that responds to /ready works normally', async () => {
+      // Old plugin without heartbeat still responds to /ready
+      setupSinglePortfile(); // uses pf1 with plugin_version
+      mockFetch.mockResolvedValue({ status: 200, ok: true }); // old /ready behavior
+
+      const result = await discoverPort({});
+      expect(result.port).toBe(pf1.port);
+      expect(mockUnlink).not.toHaveBeenCalled();
+    });
+
+    it('SMITHUE_PORT env override bypasses portfile discovery entirely', async () => {
+      process.env['SMITHUE_PORT'] = '9999';
+      const result = await discoverPort({});
+      expect(result.port).toBe(9999);
+      expect(result.pid).toBe(0); // no pid from portfile
+      expect(mockReaddir).not.toHaveBeenCalled(); // no portfile read
+    });
+  });
+
+  // ── New stale policy (RED — will turn GREEN in task 8) ───────────────────
+  describe('new stale policy (RED — will turn GREEN in task 8)', () => {
+    it('AbortError (timeout) + pid alive → does NOT unlink portfile', async () => {
+      setupSinglePortfile();
+      mockIsProcessAlive.mockReturnValue(true);
+      const abortErr = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+      mockFetch.mockRejectedValue(abortErr);
+
+      // discoverPort should NOT call unlink even if /ready times out
+      await discoverPort({}).catch(() => {});
+      expect(mockUnlink).not.toHaveBeenCalled();
+    });
+
+    it('ECONNREFUSED + pid dead → unlinks portfile and throws SmithUEError exitCode 2', async () => {
+      setupSinglePortfile();
+      mockIsProcessAlive.mockReturnValue(false);
+      mockFetch.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:13721'));
+
+      await expect(discoverPort({})).rejects.toMatchObject({ name: 'SmithUEError', exitCode: 2 });
+      expect(mockUnlink).toHaveBeenCalledOnce();
+    });
+
+    it('ECONNREFUSED + pid alive → does NOT unlink portfile', async () => {
+      setupSinglePortfile();
+      mockIsProcessAlive.mockReturnValue(true);
+      mockFetch.mockRejectedValue(new Error('fetch failed - ECONNREFUSED'));
+
+      await discoverPort({}).catch(() => {});
+      expect(mockUnlink).not.toHaveBeenCalled();
+    });
+
+    it('malformed portfile JSON → does not crash, throws SmithUEError not TypeError', async () => {
+      mockReaddir.mockResolvedValue(['1001.port'] as unknown as any);
+      mockReadFile.mockResolvedValue('not-valid-json{' as unknown as any);
+
+      const err = await discoverPort({}).catch(e => e);
+      // Should throw SmithUEError (no portfiles found) NOT an uncaught TypeError
+      expect(err).toBeInstanceOf(SmithUEError);
+      expect(err).not.toBeInstanceOf(TypeError);
     });
   });
 });
