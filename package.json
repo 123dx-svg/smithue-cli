@@ -1,6 +1,6 @@
 {
     "name":  "smithue-cli",
-    "version":  "0.9.0",
+    "version":  "0.9.1",
     "type":  "module",
     "main":  "dist/cli.js",
   "scripts": {
@@ -23,7 +23,7 @@
                          "commander":  "^15.0.0"
                      },
     "bin":  {
-                "smithue-cli":  "./dist/cli.js"
+                "smithue-cli":  "dist/cli.js"
             },
     "engines":  {
                     "node":  "\u003e=18"

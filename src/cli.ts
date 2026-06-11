@@ -17,7 +17,7 @@ const require = createRequire(import.meta.url);
 const { version: cliVersion } = require('../package.json') as { version: string };
 
 program
-  .name('smithue')
+  .name('smithue-cli')
   .description('CLI for SmithUE Unreal Engine plugin')
   .version(cliVersion)
   .option('--pid <pid>', 'target SmithUE instance by PID', parseInt)

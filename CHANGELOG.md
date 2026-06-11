@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.1 — Packaging polish
+
+### Fixed
+- `bin` path normalized to `dist/cli.js` (removed `./` prefix) to eliminate npm publish warning.
+- CLI program name set to `smithue-cli` so `--help` shows the correct usage line.
+
 ## v0.9.0 — Portfile Robustness
 
 ### Fixed
