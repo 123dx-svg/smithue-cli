@@ -8,6 +8,19 @@ export interface OutputOptions {
 
 let _opts: OutputOptions = {};
 
+export function escapeNonAscii(s: string): string {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (code < 0x80) {
+      out += s[i];
+    } else {
+      out += `\\u${code.toString(16).padStart(4, '0')}`;
+    }
+  }
+  return out;
+}
+
 export function setOutputOptions(opts: OutputOptions): void {
   _opts = { ..._opts, ...opts };
 }
@@ -27,7 +40,8 @@ export function printResult(data: unknown): void {
 
     if (isDir) {
       process.stderr.write(
-        JSON.stringify({ error: `outPath is a directory: ${_opts.outPath}`, exit_code: 1 }) + '\n',
+        escapeNonAscii(JSON.stringify({ error: `outPath is a directory: ${_opts.outPath}`, exit_code: 1 })) +
+          '\n',
       );
       process.exit(1);
       return;
@@ -37,7 +51,7 @@ export function printResult(data: unknown): void {
     return;
   }
 
-  process.stdout.write(json);
+  process.stdout.write(escapeNonAscii(json));
 }
 
 export function printError(err: unknown): void {
@@ -55,6 +69,6 @@ export function printError(err: unknown): void {
     exitCode = 4;
   }
 
-  process.stderr.write(JSON.stringify({ error: message, exit_code: exitCode }) + '\n');
+  process.stderr.write(escapeNonAscii(JSON.stringify({ error: message, exit_code: exitCode })) + '\n');
   process.exit(exitCode);
 }
