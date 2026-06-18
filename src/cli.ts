@@ -7,6 +7,7 @@ import { execCommand } from './commands/exec.js';
 import { listCommand } from './commands/list.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
+import { useCommand } from './commands/use.js';
 import { purge } from './commands/purge.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { batchCommand } from './commands/batch.js';
@@ -24,11 +25,16 @@ program
   .option('--project <path>', 'target SmithUE instance by project path')
   .option('--port <port>', 'connect directly to port (skip discovery)', parseInt)
   .option('--terse', 'emit minified JSON output')
-  .option('--out <file>', 'write result to file instead of stdout');
+  .option('--out <file>', 'write result to file instead of stdout')
+  .option('--strict', 'require explicit instance selection; error on multiple instances (CI mode)');
 
 program.hook('preAction', () => {
-  const opts = program.opts<{ terse?: boolean; out?: string }>();
+  const opts = program.opts<{ terse?: boolean; out?: string; strict?: boolean }>();
   setOutputOptions({ terse: opts.terse, outPath: opts.out });
+  // SMITHUE_STRICT=1 env var acts as global --strict
+  if (!opts.strict && process.env['SMITHUE_STRICT'] === '1') {
+    program.setOptionValue('strict', true);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -37,8 +43,8 @@ program.hook('preAction', () => {
 program
   .command('exec <command> [params]')
   .description('Execute a SmithUE command')
-  .action(async (command: string, params: string | undefined) => {
-    const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
+.action(async (command: string, params: string | undefined) => {
+    const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
     let parsedParams: Record<string, unknown> = {};
     if (params) {
       try {
@@ -57,8 +63,8 @@ program
 program
   .command('list [domain]')
   .description('List available tools, optionally filtered by domain')
-  .action(async (domain: string | undefined) => {
-    const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
+.action(async (domain: string | undefined) => {
+    const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
     await listCommand(domain, { ...globals, cliVersion });
   });
 
@@ -68,8 +74,8 @@ program
 program
   .command('search <keyword>')
   .description('Search tools by keyword')
-  .action(async (keyword: string) => {
-    const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
+.action(async (keyword: string) => {
+    const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
     await searchCommand(keyword, { ...globals, cliVersion });
   });
 
@@ -81,8 +87,21 @@ program
   .description('Get SmithUE editor status')
   .option('--wait <seconds>', 'wait up to N seconds for editor to be ready', parseInt)
   .action(async (cmdOpts: { wait?: number }) => {
-    const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
+    const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
     await statusCommand({ ...globals, wait: cmdOpts.wait, cliVersion });
+  });
+
+// ---------------------------------------------------------------------------
+// use
+// ---------------------------------------------------------------------------
+program
+  .command('use')
+  .description('Pin a default SmithUE instance. Use --clear to unpin.')
+  .option('--pid <pid>', 'pin instance by PID', parseInt)
+  .option('--project <path>', 'pin instance by project path or name')
+  .option('--clear', 'remove the pinned instance')
+  .action(async (cmdOpts: { pid?: number; project?: string; clear?: boolean }) => {
+    await useCommand(cmdOpts);
   });
 
 // ---------------------------------------------------------------------------
@@ -188,8 +207,8 @@ program
 program
   .command('batch [commands...]')
   .description('Execute multiple read-only commands sequentially')
-  .action(async (commands: string[] = []) => {
-    const globals = program.opts<{ pid?: number; project?: string; port?: number }>();
+.action(async (commands: string[] = []) => {
+    const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
     await batchCommand(commands, globals);
   });
 

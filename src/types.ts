@@ -56,3 +56,32 @@ export interface PurgeResult {
   errors: string[];
   warnings: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Registry / multi-instance discovery types (P1.2 / P2.2 / P2.3)
+// ---------------------------------------------------------------------------
+
+/** Persisted entry in last-used.json registry. */
+export interface RegistryEntry {
+  projectId: string;
+  pid: number;
+  port: number;
+  project: string;
+  project_name: string;
+  lastConnectedAt: string; // ISO timestamp
+}
+
+/** Shape of last-used.json on disk. */
+export interface Registry {
+  entries: RegistryEntry[];
+  pinned?: RegistryEntry;
+}
+
+/** Extends portfile DiscoverOpts with multi-instance selection flags. */
+export interface DiscoverOptsExtended {
+  pid?: number;
+  project?: string;
+  port?: number;
+  /** If true, revert to hard-error on multi-instance (CI/script mode). Default: false. */
+  strict?: boolean;
+}

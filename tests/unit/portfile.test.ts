@@ -15,12 +15,26 @@ vi.mock('../../src/proc.js', () => ({
   isProcessAlive: vi.fn(),
 }));
 
+vi.mock('../../src/registry.js', () => ({
+  getMostRecent: vi.fn(),
+  getPinned: vi.fn(),
+  updateLastUsed: vi.fn(),
+}));
+
+vi.mock('../../src/identity.js', () => ({
+  projectId: vi.fn((absPath: string) => `id:${absPath}`),
+}));
+
 import * as fsp from 'fs/promises';
 import * as proc from '../../src/proc.js';
+import * as registry from '../../src/registry.js';
 const mockReaddir = vi.mocked(fsp.readdir);
 const mockReadFile = vi.mocked(fsp.readFile);
 const mockUnlink = vi.mocked(fsp.unlink);
 const mockIsProcessAlive = vi.mocked(proc.isProcessAlive);
+const mockGetMostRecent = vi.mocked(registry.getMostRecent);
+const mockGetPinned = vi.mocked(registry.getPinned);
+const mockUpdateLastUsed = vi.mocked(registry.updateLastUsed);
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -53,6 +67,24 @@ const pfWithoutPluginVersion = {
   project: 'C:/Projects/GameC/GameC.uproject',
   project_name: 'GameC',
   started_at: '2024-01-01T00:00:00Z',
+};
+
+const pfShared1 = {
+  port: 13724,
+  pid: 1004,
+  project: 'C:/Projects/TeamA/Shared/Shared.uproject',
+  project_name: 'SharedA',
+  started_at: '2024-01-01T00:00:00Z',
+  plugin_version: '0.7.0',
+};
+
+const pfShared2 = {
+  port: 13725,
+  pid: 1005,
+  project: 'D:/Projects/TeamB/Shared/Shared.uproject',
+  project_name: 'SharedB',
+  started_at: '2024-01-01T00:00:00Z',
+  plugin_version: '0.7.0',
 };
 
 function okResponse() {
@@ -101,7 +133,7 @@ describe('discoverPort', () => {
     it('returns port from env without reading portfiles', async () => {
       process.env['SMITHUE_PORT'] = '19999';
       const result = await discoverPort({});
-      expect(result).toEqual({ port: 19999, pid: 0, project: '', project_name: '' });
+      expect(result).toEqual({ port: 19999, pid: 0, project: '', project_name: '', selection_mode: 'explicit', busy: false });
       expect(mockReaddir).not.toHaveBeenCalled();
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -125,10 +157,21 @@ describe('discoverPort', () => {
         project: pf1.project,
         project_name: pf1.project_name,
         plugin_version: pf1.plugin_version,
+        selection_mode: 'explicit',
+        busy: false,
       });
       expect(mockFetch).toHaveBeenCalledWith(
         `http://127.0.0.1:${pf1.port}/ready`,
         expect.objectContaining({ signal: expect.anything() }),
+      );
+      expect(mockUpdateLastUsed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: `id:${pf1.project}`,
+          pid: pf1.pid,
+          port: pf1.port,
+          project: pf1.project,
+          project_name: pf1.project_name,
+        }),
       );
     });
 
@@ -143,6 +186,8 @@ describe('discoverPort', () => {
         project: pfWithoutPluginVersion.project,
         project_name: pfWithoutPluginVersion.project_name,
         plugin_version: undefined,
+        selection_mode: 'explicit',
+        busy: false,
       });
     });
 
@@ -179,16 +224,41 @@ describe('discoverPort', () => {
 
   // ── Multi-instance error ──────────────────────────────────────────────────
   describe('multi-instance (2 portfiles, no filter)', () => {
-    it('throws SmithUEError exitCode 1 with PID and project_name in message', async () => {
+    it('selects most recent instance when strict is false', async () => {
       setupTwoPortfiles();
+      mockGetMostRecent.mockResolvedValue({
+        projectId: `id:${pf2.project}`,
+        pid: pf2.pid,
+        port: pf2.port,
+        project: pf2.project,
+        project_name: pf2.project_name,
+        lastConnectedAt: '2024-01-01T00:00:01Z',
+      });
+      mockGetPinned.mockResolvedValue(undefined);
+      mockFetch.mockResolvedValue(okResponse());
 
-      const err = await discoverPort({}).catch((e) => e);
+      const result = await discoverPort({});
+      expect(result.pid).toBe(pf2.pid);
+      expect(result.port).toBe(pf2.port);
+      expect(result.selection_mode).toBe('most-recent');
+      expect(mockFetch).toHaveBeenCalledWith(
+        `http://127.0.0.1:${pf2.port}/ready`,
+        expect.objectContaining({ signal: expect.anything() }),
+      );
+    });
+
+    it('throws SmithUEError exitCode 1 when strict is true', async () => {
+      setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
+
+      const err = await discoverPort({ strict: true }).catch((e) => e);
       expect(err).toBeInstanceOf(SmithUEError);
       expect(err.exitCode).toBe(1);
       expect(err.message).toContain('1001');
       expect(err.message).toContain('GameA');
       expect(err.message).toContain('1002');
       expect(err.message).toContain('GameB');
+      expect(mockGetMostRecent).not.toHaveBeenCalled();
     });
   });
 
@@ -196,6 +266,7 @@ describe('discoverPort', () => {
   describe('--pid filter', () => {
     it('selects the instance with matching PID', async () => {
       setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue(okResponse());
 
       const result = await discoverPort({ pid: 1002 });
@@ -205,6 +276,7 @@ describe('discoverPort', () => {
 
     it('throws exitCode 2 when no portfile matches PID', async () => {
       setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
       await expect(discoverPort({ pid: 9999 })).rejects.toMatchObject({
         exitCode: 2,
       });
@@ -215,6 +287,7 @@ describe('discoverPort', () => {
   describe('SMITHUE_PID env filter', () => {
     it('filters by PID from env', async () => {
       setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue(okResponse());
       process.env['SMITHUE_PID'] = '1001';
 
@@ -224,6 +297,7 @@ describe('discoverPort', () => {
 
     it('--pid flag takes precedence over SMITHUE_PID env', async () => {
       setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue(okResponse());
       process.env['SMITHUE_PID'] = '1001';
 
@@ -236,6 +310,7 @@ describe('discoverPort', () => {
   describe('--project exact match', () => {
     it('selects instance by exact project path', async () => {
       setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue(okResponse());
 
       const result = await discoverPort({ project: pf2.project });
@@ -243,18 +318,79 @@ describe('discoverPort', () => {
       expect(result.pid).toBe(pf2.pid);
     });
 
-    it('does NOT match on substring', async () => {
+    it('does NOT match on unrelated substring', async () => {
       setupTwoPortfiles();
-      await expect(discoverPort({ project: 'GameB' })).rejects.toMatchObject({
+      mockGetPinned.mockResolvedValue(undefined);
+      await expect(discoverPort({ project: 'Nope' })).rejects.toMatchObject({
         exitCode: 2,
       });
     });
 
     it('throws exitCode 2 when no portfile matches project', async () => {
       setupSinglePortfile();
+      mockGetPinned.mockResolvedValue(undefined);
       await expect(
         discoverPort({ project: 'C:/Projects/GameX/GameX.uproject' }),
       ).rejects.toMatchObject({ exitCode: 2 });
+    });
+  });
+
+  // ── --project fuzzy matching ──────────────────────────────────────────────
+  describe('--project fuzzy matching', () => {
+    it('falls back to project_name exact match when path does not match', async () => {
+      setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
+      mockFetch.mockResolvedValue(okResponse());
+
+      const result = await discoverPort({ project: 'GameB' });
+      expect(result.pid).toBe(pf2.pid);
+      expect(result.project_name).toBe(pf2.project_name);
+    });
+
+    it('falls back to project_name substring match when path does not match', async () => {
+      setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
+      mockFetch.mockResolvedValue(okResponse());
+
+      const result = await discoverPort({ project: 'ameB' });
+      expect(result.pid).toBe(pf2.pid);
+      expect(result.project_name).toBe(pf2.project_name);
+    });
+
+    it('falls back to basename of project path match when path does not match', async () => {
+      setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
+      mockFetch.mockResolvedValue(okResponse());
+
+      const result = await discoverPort({ project: 'GameB.uproject' });
+      expect(result.pid).toBe(pf2.pid);
+      expect(result.project).toBe(pf2.project);
+    });
+
+    it('throws a helpful message when no fuzzy match is found', async () => {
+      setupTwoPortfiles();
+      mockGetPinned.mockResolvedValue(undefined);
+
+      const err = await discoverPort({ project: 'MissingGame' }).catch((e) => e);
+      expect(err).toBeInstanceOf(SmithUEError);
+      expect(err.exitCode).toBe(2);
+      expect(err.message).toContain('MissingGame');
+      expect(err.message).toContain('--pid');
+    });
+
+    it('throws listing both PIDs when multiple basename matches exist', async () => {
+      mockReaddir.mockResolvedValue(['1004.port', '1005.port'] as unknown as ReturnType<typeof fsp.readdir> extends Promise<infer T> ? T : never);
+      mockGetPinned.mockResolvedValue(undefined);
+      mockReadFile
+        .mockResolvedValueOnce(JSON.stringify(pfShared1) as unknown as ReturnType<typeof fsp.readFile> extends Promise<infer T> ? T : never)
+        .mockResolvedValueOnce(JSON.stringify(pfShared2) as unknown as ReturnType<typeof fsp.readFile> extends Promise<infer T> ? T : never);
+
+      const err = await discoverPort({ project: 'Shared.uproject' }).catch((e) => e);
+      expect(err).toBeInstanceOf(SmithUEError);
+      expect(err.exitCode).toBe(1);
+      expect(err.message).toContain('1004');
+      expect(err.message).toContain('1005');
+      expect(err.message).toContain('Use --pid to select one');
     });
   });
 
@@ -273,6 +409,7 @@ describe('discoverPort', () => {
   describe('no portfiles found', () => {
     it('throws SmithUEError exitCode 2 with helpful message', async () => {
       mockReaddir.mockResolvedValue([] as unknown as ReturnType<typeof fsp.readdir> extends Promise<infer T> ? T : never);
+      mockGetPinned.mockResolvedValue(undefined);
       const err = await discoverPort({}).catch((e) => e);
       expect(err).toBeInstanceOf(SmithUEError);
       expect(err.exitCode).toBe(2);
@@ -294,6 +431,7 @@ describe('discoverPort', () => {
       };
       mockReaddir.mockResolvedValue(['2001.port'] as any);
       mockReadFile.mockResolvedValue(JSON.stringify(legacyPortfile) as any);
+      mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue({ status: 200, ok: true });
 
       const result = await discoverPort({});
@@ -306,6 +444,7 @@ describe('discoverPort', () => {
     it('old plugin that responds to /ready works normally', async () => {
       // Old plugin without heartbeat still responds to /ready
       setupSinglePortfile(); // uses pf1 with plugin_version
+      mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue({ status: 200, ok: true }); // old /ready behavior
 
       const result = await discoverPort({});
@@ -326,6 +465,7 @@ describe('discoverPort', () => {
   describe('new stale policy (RED — will turn GREEN in task 8)', () => {
     it('AbortError (timeout) + pid alive → does NOT unlink portfile', async () => {
       setupSinglePortfile();
+      mockGetPinned.mockResolvedValue(undefined);
       mockIsProcessAlive.mockReturnValue(true);
       const abortErr = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
       mockFetch.mockRejectedValue(abortErr);
@@ -337,6 +477,7 @@ describe('discoverPort', () => {
 
     it('ECONNREFUSED + pid dead → unlinks portfile and throws SmithUEError exitCode 2', async () => {
       setupSinglePortfile();
+      mockGetPinned.mockResolvedValue(undefined);
       mockIsProcessAlive.mockReturnValue(false);
       mockFetch.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:13721'));
 
@@ -346,6 +487,7 @@ describe('discoverPort', () => {
 
     it('ECONNREFUSED + pid alive → does NOT unlink portfile', async () => {
       setupSinglePortfile();
+      mockGetPinned.mockResolvedValue(undefined);
       mockIsProcessAlive.mockReturnValue(true);
       mockFetch.mockRejectedValue(new Error('fetch failed - ECONNREFUSED'));
 
@@ -355,6 +497,7 @@ describe('discoverPort', () => {
 
     it('malformed portfile JSON → does not crash, throws SmithUEError not TypeError', async () => {
       mockReaddir.mockResolvedValue(['1001.port'] as unknown as any);
+      mockGetPinned.mockResolvedValue(undefined);
       mockReadFile.mockResolvedValue('not-valid-json{' as unknown as any);
 
       const err = await discoverPort({}).catch(e => e);

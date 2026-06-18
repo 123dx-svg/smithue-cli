@@ -69,6 +69,23 @@ export function printError(err: unknown): void {
     exitCode = 4;
   }
 
-  process.stderr.write(escapeNonAscii(JSON.stringify({ error: message, exit_code: exitCode })) + '\n');
+  // Extract curl fallback from message if present (written as "  Fallback: curl ...")
+  const fallbackMatch = message.match(/\n\s+Fallback:\s+(curl\s+.+)/);
+  const fallback_cmd = fallbackMatch ? fallbackMatch[1]!.trim() : undefined;
+  const cleanMessage = message.split('\n')[0]!; // first line for code-parseable summary
+
+  // Machine-readable error envelope (P3.3)
+  const envelope = {
+    ok: false,
+    error: {
+      message: cleanMessage,
+      full_message: message,
+      code: exitCode,
+      exit: exitCode,
+      ...(fallback_cmd ? { hint: 'Use fallback_cmd to verify connectivity.', fallback_cmd } : {}),
+    },
+  };
+
+  process.stderr.write(escapeNonAscii(JSON.stringify(envelope)) + '\n');
   process.exit(exitCode);
 }

@@ -35,6 +35,8 @@ export async function statusCommand(opts: StatusOpts): Promise<void> {
             ready: res.ready,
             version: res.version,
             pie_active: res.pie_active,
+            ...(discovered.selection_mode ? { selection_mode: discovered.selection_mode } : {}),
+            ...(discovered.busy ? { busy: true } : {}),
           });
           return;
         }
@@ -54,6 +56,8 @@ export async function statusCommand(opts: StatusOpts): Promise<void> {
         ready: res.ready,
         version: res.version,
         pie_active: res.pie_active,
+        ...(discovered.selection_mode ? { selection_mode: discovered.selection_mode } : {}),
+        ...(discovered.busy ? { busy: true } : {}),
       });
     }
   } catch (err) {

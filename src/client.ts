@@ -82,7 +82,8 @@ export class SmithUEClient {
       msg.includes('connect ECONNREFUSED')
     ) {
       return new Error(
-        `SmithUE plugin unreachable at ${this.host}:${this.port}. Start UE Editor with SmithUE plugin enabled.`
+        `SmithUE plugin unreachable at ${this.host}:${this.port}. Start UE Editor with SmithUE plugin enabled.\n` +
+        `  Fallback: curl -s http://${this.host}:${this.port}/api/v1/execute -d '{"command":"ping","params":{}}'`
       );
     }
 

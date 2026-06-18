@@ -103,26 +103,44 @@ describe('printError', () => {
   it('handles SmithUEError with correct exitCode', () => {
     const err = new SmithUEError('unreachable port', 2);
     printError(err);
-    expect(stderrSpy).toHaveBeenCalledWith(
-      JSON.stringify({ error: 'unreachable port', exit_code: 2 }) + '\n',
-    );
+    expect(JSON.parse((stderrSpy.mock.calls[0] as [string])[0] as string)).toMatchObject({
+      ok: false,
+      error: {
+        message: 'unreachable port',
+        full_message: 'unreachable port',
+        code: 2,
+        exit: 2,
+      },
+    });
     expect(exitSpy).toHaveBeenCalledWith(2);
   });
 
   it('handles plain Error with exitCode 4', () => {
     const err = new Error('something went wrong');
     printError(err);
-    expect(stderrSpy).toHaveBeenCalledWith(
-      JSON.stringify({ error: 'something went wrong', exit_code: 4 }) + '\n',
-    );
+    expect(JSON.parse((stderrSpy.mock.calls[0] as [string])[0] as string)).toMatchObject({
+      ok: false,
+      error: {
+        message: 'something went wrong',
+        full_message: 'something went wrong',
+        code: 4,
+        exit: 4,
+      },
+    });
     expect(exitSpy).toHaveBeenCalledWith(4);
   });
 
   it('handles string error with exitCode 4', () => {
     printError('just a string');
-    expect(stderrSpy).toHaveBeenCalledWith(
-      JSON.stringify({ error: 'just a string', exit_code: 4 }) + '\n',
-    );
+    expect(JSON.parse((stderrSpy.mock.calls[0] as [string])[0] as string)).toMatchObject({
+      ok: false,
+      error: {
+        message: 'just a string',
+        full_message: 'just a string',
+        code: 4,
+        exit: 4,
+      },
+    });
     expect(exitSpy).toHaveBeenCalledWith(4);
   });
 
