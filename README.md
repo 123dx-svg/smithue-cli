@@ -48,6 +48,8 @@ npx smithue-cli <command>
 | `upgrade` | Update the CLI to the latest version via npm |
 | `prune` | Remove stale port files from crashed instances |
 | `purge` | Remove the entire `.smithue` directory (full uninstall cleanup) |
+| `use` | Pin (or unpin) a default SmithUE instance for multi-editor setups |
+| `skill` | Print or install the bundled SKILL.md for AI agent integration |
 
 ## Output Modes
 
@@ -140,6 +142,25 @@ smithue-cli purge -y       # non-interactive full purge (CI/scripts)
 | 3 | `.smithue` is a symlink or junction — refused for safety |
 
 For routine cleanup of stale portfiles without removing the directory, use `smithue-cli prune` instead.
+
+## Exit Codes
+
+| Code | Meaning | Common cause |
+|---|---|---|
+| `0` | Success | Command completed normally |
+| `1` | Bad input or disambiguation required | Invalid arguments; multiple instances running without `--pid`/`--project`; `PAYLOAD_TOO_LARGE` |
+| `2` | Not found or unreachable | No portfiles found; instance unreachable; PID/project not matched |
+| `3` | Command error | `PIE_LOCKED`, `ASSET_NOT_FOUND`, `INVALID_REQUEST`, or unknown plugin error |
+| `4` | Internal / editor not ready | `INTERNAL_ERROR`, `EDITOR_NOT_READY`, unexpected exception |
+| `5` | Stale session NID | `STALE_NID` — node ID is outdated, re-run the command |
+| `6` | Wait timeout | `--wait` exceeded without editor becoming ready |
+
+Scripts can branch on exit codes:
+```powershell
+smithue-cli status
+if ($LASTEXITCODE -eq 2) { Write-Host "Editor not running" }
+if ($LASTEXITCODE -eq 5) { Write-Host "Reconnecting (stale NID)..." }
+```
 
 ## Known Limitations
 - Version 1 is Windows-only due to portfile path conventions.

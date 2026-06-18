@@ -11,6 +11,7 @@ import { useCommand } from './commands/use.js';
 import { purge } from './commands/purge.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { batchCommand } from './commands/batch.js';
+import { skillCommand } from './commands/skill.js';
 import { printResult, printError, setOutputOptions } from './output.js';
 
 const program = new Command();
@@ -199,6 +200,18 @@ program
   .description('Update smithue-cli globally via npm')
   .action(async () => {
     await upgradeCommand();
+  });
+
+// ---------------------------------------------------------------------------
+// skill
+// ---------------------------------------------------------------------------
+program
+  .command('skill')
+  .description('Print or install the bundled SKILL.md for AI agent integration')
+  .option('--print', 'print SKILL.md to stdout')
+  .option('--install <dir>', 'install SKILL.md into the specified directory')
+  .action(async (cmdOpts: { print?: boolean; install?: string }) => {
+    await skillCommand(cmdOpts);
   });
 
 // ---------------------------------------------------------------------------

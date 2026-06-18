@@ -1,0 +1,124 @@
+---
+name: smithue-control
+description: Drive and inspect a running Unreal Engine editor via the smithue-cli command line (SmithUE plugin). Use when the user wants to operate the UE editor, inspect or troubleshoot Blueprints (components, variables, functions, inheritance, mobility/transform, compile errors, diffs, data-flow), spawn/query actors, read materials, or run editor commands from outside the editor. Triggers: SmithUE, smithue-cli, 操作UE编辑器, 蓝图排故, blueprint troubleshooting, bp_get_summary, bp_get_component_details, inspect blueprint, UE editor automation, 读取蓝图组件, 蓝图父类/继承链, 组件 Mobility/Transform. Do NOT use for: editing UE C++ source/Build.cs (that is normal code editing), or projects with no running UE editor + SmithUE plugin.
+---
+
+<!-- smithue-cli v0.10.0+ | SmithUE plugin v1.8.0+ -->
+
+# SmithUE Control：用 smithue-cli 驱动/检查运行中的 UE 编辑器
+
+## 前置 / 适用
+
+- SmithUE 是一个 UE5.2 编辑器插件，通过本地 HTTP 暴露编辑器能力；`smithue-cli` 是其 npm CLI（v0.10.0+）。全局安装 `npm i -g smithue-cli`，或免安装 `npx smithue-cli`。
+- 全局、项目无关：端口文件在 `%LOCALAPPDATA%\.smithue\<pid>.port`（Windows-only），任何工作目录都能发现编辑器，换项目无需任何配置。
+- 前提：UE 编辑器正在运行且启用了 SmithUE 插件（编辑器状态栏有绿点）。
+
+## 发现与调用（4 步，权威自描述）
+
+```powershell
+npx smithue-cli status                                        # 1. 发现运行中的编辑器：port/pid/project/ready
+npx smithue-cli list                                          # 2. 列出所有功能域（19 domains）
+npx smithue-cli exec list_tools '{\"domain\":\"Blueprint\"}'  # 3. 拿某域全部命令 + 参数 schema（权威，不靠记忆）
+npx smithue-cli exec <command> '<json-params>'                # 4. 调用任意命令
+```
+
+不确定参数名时永远先跑第 3 步，`list_tools` 返回的 schema 是唯一权威来源。
+
+全局选项：
+- `--terse`：压缩 JSON 省 token（AI 调用推荐默认带上）
+- `--out <file>`：大输出写文件，避免刷爆上下文
+- `--pid <n>` / `--project <name|path>`：多个编辑器同时运行时选实例（v0.10.0+ 支持名字模糊匹配）
+- `--strict`：CI/脚本模式，多实例时强制报错而非自动选最近实例
+
+## 多实例管理（v0.10.0+ 新增）
+
+**默认行为**：多个编辑器运行时，CLI 自动选择**最近连接**的实例，并在 stderr 打印选中提示：
+```
+[smithue] selected PID 1234 MyProject (most recent)
+```
+
+**钉住默认实例**（`smithue-cli use`）：
+```powershell
+smithue-cli use --pid 1234         # 钉住 PID 1234 作为默认
+smithue-cli use --project MyProj   # 按名字/basename 钉住
+smithue-cli use --clear            # 解除钉住
+```
+
+**严格模式**（CI / 脚本）：
+```powershell
+smithue-cli --strict exec ping {}  # 多实例时硬报错，不自动选
+# 或：
+$env:SMITHUE_STRICT=1; smithue-cli status
+```
+
+## ⚠️ Gotchas（必读，按踩坑频率排序）
+
+1. ❌ PowerShell 里直接传 `'{"k":"v"}'` JSON
+   ✅ 转义双引号：`'{\"k\":\"v\"}'`
+   💡 npm.cmd 会重解析命令行并吞掉未转义的双引号，UE 端收到残缺 JSON。
+
+2. ❌ 假设所有命令都用 `bp_path` 参数
+   ✅ 部分命令参数名不同：`bp_get_compile_errors` 用 `blueprint_path`；`find_asset` 用 `name_pattern`；`get_actor_property` 用 `actor_label`。先 `list_tools` 查 schema。
+   💡 历史原因命名不统一，靠记忆必踩坑。
+
+3. ❌ CLI 报 "No portfiles found"，但编辑器明明在运行
+   ✅ v0.10.0+ 错误消息已内置兜底命令：直接复制错误中的 `curl` 命令验证连通性。也可手动：
+   ```powershell
+   curl -s http://127.0.0.1:<port>/api/v1/execute -d '{"command":"ping","params":{}}'
+   ```
+   检查编辑器状态栏 SmithUE 绿点；端口目录 `%LOCALAPPDATA%\.smithue\`；或 `SMITHUE_PORT=<port>` 直连。
+   💡 v0.9.x 健康检查有 bug 会误删端口文件（v0.9.0+ 已修）。
+
+4. ❌ 用淘宝镜像 registry 发布 CLI
+   ✅ 发布必须指定官方源：`npm publish --registry https://registry.npmjs.org`
+   💡 镜像源只读，publish 会失败。
+
+5. ❌ 蓝图加载成空壳（parent_class=None、无变量无组件、IsDataOnly）就以为这一个蓝图坏了
+   ✅ 先查它的 C++ 父类所在模块在当前构建里是否可解析：`bp_get_class_members '{\"bp_path\":\"<NativeClassName>\"}'`；再对比完好兄弟蓝图 `get_asset_info` 返回 tags 里的 ParentClass。
+   💡 P4 管理的蓝图继承 Git 分支里的 C++ 父类；切分支后父模块缺失，蓝图父引用断裂，整批退化成空壳。
+
+6. ❌ 改完插件 C++ 命令后，连到旧编辑器进程还期望看到新命令
+   ✅ 必须重启编辑器（启动时自动重编译并加载新 DLL）。
+
+7. ❌ 解析错误输出时用正则匹配文本
+   ✅ v0.10.0+ 错误统一为机器可读 envelope（stderr JSON）：
+   ```json
+   {"ok":false,"error":{"message":"...","code":2,"exit":2,"hint":"...","fallback_cmd":"curl ..."}}
+   ```
+   直接读 `error.code` / `error.fallback_cmd` 分支，不用正则。
+
+## 蓝图排故命令目录（核心价值）
+
+| 命令 | 返回内容 | 关键参数 |
+|---|---|---|
+| `bp_get_summary` | 元数据/组件层级/变量/函数/接口（仅本类） | `{bp_path}` |
+| `bp_get_class_members` | 成员按归属类分组 + 完整 C++ 继承链 (v1.5.0+) | `{bp_path, scope:self\|chain\|owner:X, kinds, detail, limit}` |
+| `bp_get_component_details` | 组件 Mobility/Transform/Absolute/Physics/Mesh/材质/碰撞 (v1.6.0+) | `{bp_path, component?, props?, include_inherited}` |
+| `bp_health_check` | 聚合体检：编译错误+断脚+断引用+孤立节点 (v1.7.0+) | `{bp_path, checks?, limit}` |
+| `bp_diff` | 两蓝图结构差异 (v1.7.0+) | `{bp_path_a, bp_path_b, aspects?}` |
+| `bp_trace_value` | 数据流回溯 (v1.7.0+) | `{bp_path, graph_name, node, pin?, direction?, max_depth?}` |
+| `bp_describe_graph` | 图节点列表 | `{bp_path, graph_name, mode:full\|compact\|summary}` |
+| `bp_search` | 按名称/类型搜节点 | `{bp_path, name?, type?, limit}` |
+| `bp_get_compile_errors` | 编译错误/警告 | `{blueprint_path}` ← 注意参数名 |
+| `bp_reparent` | 改父类 | `{bp_path, new_parent_class}` |
+
+除 Blueprint 外还有 Material/Asset/Editor/Niagara/Level/Data/Sequencer/PIE/Animation/Input/UMG 等域，用 `list` + `list_tools` 探索，不要靠记忆。
+
+## Token 控制
+
+- 默认用 `scope=self`、`detail=compact`、带 `limit`；先看 counts 概览再下钻具体成员。
+- 始终加 `--terse`；大结果用 `--out <file>` 落盘后按需读取。
+
+## 获取最新 Skill
+
+v0.10.0+ 起，skill 随 CLI 仓库版本化发布。获取与当前 CLI 版本匹配的 skill：
+```powershell
+smithue-cli skill --print     # 打印 SKILL.md 内容
+smithue-cli skill --install C:\Users\you\.agents\skills\smithue-control  # 安装到指定目录
+```
+
+## 维护
+
+- 插件仓库：github.com/123dx-svg/SmithUE
+- CLI 仓库：github.com/123dx-svg/smithue-cli（npm 包名 `smithue-cli`）
+- 完整命令参考：`smithue-cli list` 实时查询，或看插件仓库 TOOLS.md。
