@@ -19,12 +19,13 @@ description: Inspect or modify Unreal Engine uasset resources (Blueprints, mater
 
 ```powershell
 npx smithue-cli status                                        # 1. 发现运行中的编辑器：port/pid/project/ready
-npx smithue-cli list                                          # 2. 列出所有功能域（23 domains / 211 tools）
-npx smithue-cli exec list_tools '{\"domain\":\"Blueprint\"}'  # 3. 拿某域全部命令 + 参数 schema（权威，不靠记忆）
+npx smithue-cli search <关键词>                                # 2. 按意图定位工具：搜 name+description（跨所有域），如 collision/material/spawn
+npx smithue-cli list                                          # 2b. 或先列功能域（23 domains / 211 tools）
+npx smithue-cli exec list_tools '{\"domain\":\"Blueprint\"}'  # 3. 拿目标域全部命令 + 参数 schema（权威，不靠记忆）
 npx smithue-cli exec <command> '<json-params>'                # 4. 调用任意命令
 ```
 
-不确定参数名时永远先跑第 3 步，`list_tools` 返回的 schema 是唯一权威来源。
+不知道用哪个工具 → 先 `search <关键词>` 按意图召回；知道域 → `list_tools` 看全量。参数永远以第 3 步 schema 为准、不靠记忆（`search` 是字面子串匹配，搜不到就换同义词或改用 `list_tools`）。
 
 全局选项：
 - `--terse`：压缩 JSON 省 token（AI 调用推荐默认带上）
