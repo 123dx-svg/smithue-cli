@@ -17,7 +17,7 @@ description: Drive and inspect a running Unreal Engine editor via the smithue-cl
 
 ```powershell
 npx smithue-cli status                                        # 1. 发现运行中的编辑器：port/pid/project/ready
-npx smithue-cli list                                          # 2. 列出所有功能域（19 domains）
+npx smithue-cli list                                          # 2. 列出所有功能域（23 domains / 211 tools）
 npx smithue-cli exec list_tools '{\"domain\":\"Blueprint\"}'  # 3. 拿某域全部命令 + 参数 schema（权威，不靠记忆）
 npx smithue-cli exec <command> '<json-params>'                # 4. 调用任意命令
 ```
@@ -102,7 +102,26 @@ $env:SMITHUE_STRICT=1; smithue-cli status
 | `bp_get_compile_errors` | 编译错误/警告 | `{blueprint_path}` ← 注意参数名 |
 | `bp_reparent` | 改父类 | `{bp_path, new_parent_class}` |
 
-除 Blueprint 外还有 Material/Asset/Editor/Niagara/Level/Data/Sequencer/PIE/Animation/Input/UMG 等域，用 `list` + `list_tools` 探索，不要靠记忆。
+除 Blueprint 外还有 Material/Asset/Editor/Niagara/Level/Data/Sequencer/PIE/Animation/Input/UMG/Observation/Viewport/Environment/Interaction/Curve/RenderTarget/Physics/Debug/System/Project/Analysis 等域（共 23 域 / 211 工具），用 `list` + `list_tools` 探索，不要靠记忆。
+
+## 批量编辑 / 写操作 + 文件夹作用域（重要）
+
+批量改蓝图组件属性时，**先用内容浏览器当前文件夹作用域，别全工程扫**：
+
+1. `get_content_browser_selection` → 拿当前选中的文件夹/资产（返回 `/All/Game/...` 虚拟路径）。
+2. 把文件夹路径作为 `folder_path` 传给批量命令（命令内部会自动去掉 `/All` 前缀）。
+3. ❌ 不要用 `find_asset` 做「全工程枚举」——它递归扫 `/Game` 且**封顶 100 条**，10W 蓝图必丢数据。批量命令内部用 AssetRegistry 只读元数据按文件夹枚举（100k-safe）。
+4. 写操作先 `dry_run:true` 预览，确认无误再 `dry_run:false` 落地，最后 `save_asset` 持久化。
+
+| 命令 | 作用 | 关键参数 |
+|---|---|---|
+| `get_content_browser_selection` | 读内容浏览器当前选中文件夹/资产 | 无 |
+| `sync_content_browser` | 把内容浏览器导航/聚焦到某资产或文件夹 | `{asset_path? \| folder_path?}` |
+| `bp_set_component_collision` | 批量设 StaticMeshComponent 碰撞（对象类型+逐通道响应），单 BP 或文件夹一层 | `{bp_path? \| folder_path?, object_type=Vehicle, responses:{Pawn:Ignore}, component?, skip_if_no_mesh_collision=true, dry_run}` |
+| `bp_bulk_set_component_property` | 通用批量设组件模板属性：点路径+索引（`BodyInstance.bSimulatePhysics`、`OverrideMaterials[0]`）+ 碰撞/网格/材质语义 setter，单 BP 或文件夹一层；`include_inherited=true` 改父类继承组件（走子蓝图 ICH override 模板，不动父类） | `{bp_path? \| folder_path?, component_class?, component?, edits:[{property_path,value}], include_inherited, dry_run, defer_compile}` |
+| `save_asset` / `save_all_dirty` | 保存改动到磁盘 | `{asset_path}` / 无 |
+
+注：碰撞按编辑器显示名解析（`Vehicle`/`Pawn`，兼容工程改名）；会先把 profile 切 `Custom` 再设对象类型+响应；「原模型无碰撞」（无简单碰撞体且非 Use-Complex-As-Simple）的网格自动跳过。
 
 ## Token 控制
 
