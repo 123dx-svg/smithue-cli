@@ -55,7 +55,7 @@ program
         return;
       }
     }
-    await execCommand(command, parsedParams, { ...globals, cliVersion });
+    await execCommand(command, parsedParams, { ...globals });
   });
 
 // ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ program
   .description('List available tools, optionally filtered by domain')
 .action(async (domain: string | undefined) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
-    await listCommand(domain, { ...globals, cliVersion });
+    await listCommand(domain, { ...globals });
   });
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ program
   .description('Search tools by keyword')
 .action(async (keyword: string) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
-    await searchCommand(keyword, { ...globals, cliVersion });
+    await searchCommand(keyword, { ...globals });
   });
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ program
   .option('--wait <seconds>', 'wait up to N seconds for editor to be ready', parseInt)
   .action(async (cmdOpts: { wait?: number }) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
-    await statusCommand({ ...globals, wait: cmdOpts.wait, cliVersion });
+    await statusCommand({ ...globals, wait: cmdOpts.wait });
   });
 
 // ---------------------------------------------------------------------------

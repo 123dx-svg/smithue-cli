@@ -1,14 +1,12 @@
 import { SmithUEClient } from '../client.js';
 import { discoverPort, SmithUEError } from '../portfile.js';
 import { printResult, printError } from '../output.js';
-import { checkVersionCompat } from '../version-check.js';
 
 export interface StatusOpts {
   pid?: number;
   project?: string;
   port?: number;
   wait?: number;
-  cliVersion?: string;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -18,7 +16,6 @@ async function sleep(ms: number): Promise<void> {
 export async function statusCommand(opts: StatusOpts): Promise<void> {
   try {
     const discovered = await discoverPort(opts);
-    if (opts.cliVersion) checkVersionCompat(opts.cliVersion, discovered.plugin_version);
     const client = new SmithUEClient({ host: '127.0.0.1', port: discovered.port });
 
     if (opts.wait !== undefined && opts.wait > 0) {
