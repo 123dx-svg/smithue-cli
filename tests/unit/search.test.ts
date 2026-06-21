@@ -44,12 +44,9 @@ describe('searchCommand', () => {
   });
 
   it('includes tool when keyword matches name', async () => {
-    // First call (no domain) returns domain list
-    mockListTools.mockResolvedValueOnce([{ name: 'Material', description: 'Material domain' }]);
-    // Second call (domain='Material') returns tools in that domain
     mockListTools.mockResolvedValueOnce([
-      { name: 'CreateMaterial', description: 'Creates a new material' },
-      { name: 'DeleteActor', description: 'Removes an actor from the scene' },
+      { name: 'CreateMaterial', category: 'Material', description: 'Creates a new material', params: [] },
+      { name: 'DeleteActor', category: 'Editor', description: 'Removes an actor from the scene', params: [] },
     ]);
 
     await searchCommand('material', {});
@@ -61,16 +58,15 @@ describe('searchCommand', () => {
   });
 
   it('includes tool when keyword matches description', async () => {
-    mockListTools.mockResolvedValueOnce([{ name: 'Mesh', description: 'Mesh domain' }]);
     mockListTools.mockResolvedValueOnce([
-      { name: 'SpawnActor', description: 'Spawns a blueprint actor into the world' },
-      { name: 'DeleteMesh', description: 'Removes a static mesh' },
+      { name: 'SpawnActor', category: 'Editor', description: 'Spawns a blueprint actor into the world', params: [] },
+      { name: 'DeleteMesh', category: 'Editor', description: 'Removes a static mesh', params: [] },
     ]);
 
     await searchCommand('blueprint', {});
 
     expect(mockPrintResult).toHaveBeenCalledWith([
-      { domain: 'Mesh', name: 'SpawnActor', description: 'Spawns a blueprint actor into the world' },
+      { domain: 'Editor', name: 'SpawnActor', description: 'Spawns a blueprint actor into the world' },
     ]);
     expect(mockPrintError).not.toHaveBeenCalled();
   });
@@ -108,18 +104,10 @@ describe('searchCommand', () => {
     expect(mockPrintResult).not.toHaveBeenCalled();
   });
 
-  it('matches across multiple domains and is case-insensitive', async () => {
+  it('matches across multiple categories and is case-insensitive', async () => {
     mockListTools.mockResolvedValueOnce([
-      { name: 'Material', description: 'Material domain' },
-      { name: 'Actor', description: 'Actor domain' },
-    ]);
-    // tools in Material domain
-    mockListTools.mockResolvedValueOnce([
-      { name: 'CreateMATERIAL', description: 'Creates material' },
-    ]);
-    // tools in Actor domain
-    mockListTools.mockResolvedValueOnce([
-      { name: 'SpawnActor', description: 'Spawns material-based actor' },
+      { name: 'CreateMATERIAL', category: 'Material', description: 'Creates material', params: [] },
+      { name: 'SpawnActor', category: 'Actor', description: 'Spawns material-based actor', params: [] },
     ]);
 
     await searchCommand('MATERIAL', {});

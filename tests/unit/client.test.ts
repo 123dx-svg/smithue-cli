@@ -91,11 +91,21 @@ describe('SmithUEClient', () => {
       expect(tools[0].name).toBe('test_tool');
     });
 
-    it('returns empty array when no domain provided', async () => {
-      mockFetch({ status: 'success', data: { domains: ['System', 'Material'] } });
+    it('returns all tools when no category provided', async () => {
+      mockFetch({
+        status: 'success',
+        data: {
+          protocol_version: '1.0',
+          tools: [
+            { name: 'ping', category: 'System', description: 'Test', params: [] },
+            { name: 'get_project_info', category: 'Project', description: 'Info', params: [] },
+          ],
+        },
+      });
       const client = makeClient();
       const tools = await client.listTools();
-      expect(tools).toEqual([]);
+      expect(tools).toHaveLength(2);
+      expect(tools[0].name).toBe('ping');
     });
 
     it('uses 127.0.0.1 not localhost', async () => {
@@ -108,13 +118,13 @@ describe('SmithUEClient', () => {
       expect(url).toContain('127.0.0.1');
     });
 
-    it('passes domain param when provided', async () => {
+    it('passes category param when provided', async () => {
       const spy = mockFetch(toolsResponse);
       const client = makeClient();
       await client.listTools('editor');
 
       const [, init] = spy.mock.calls[0] as [string, RequestInit];
-      expect(JSON.parse(init.body as string)).toMatchObject({ params: { domain: 'editor' } });
+      expect(JSON.parse(init.body as string)).toMatchObject({ params: { category: 'editor' } });
     });
   });
 

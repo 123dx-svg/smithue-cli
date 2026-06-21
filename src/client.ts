@@ -112,14 +112,10 @@ export class SmithUEClient {
     return res.data as { message: string };
   }
 
-  async listTools(domain?: string): Promise<SmithUEToolSchema[]> {
-    const res = await this.execute('list_tools', domain ? { domain } : {});
-    if (domain) {
-      const data = res.data as { domain: string; tools: SmithUEToolSchema[] };
-      return data.tools;
-    }
-    // no domain filter - server returns {domains: [...]} not tools
-    return [];
+  async listTools(category?: string): Promise<SmithUEToolSchema[]> {
+    const res = await this.execute('list_tools', category ? { category } : {});
+    const data = res.data as { tools?: SmithUEToolSchema[] };
+    return data.tools ?? [];
   }
 
   async getReady(): Promise<{ ready: boolean; version?: string; pie_active?: boolean }> {
