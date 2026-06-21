@@ -1,6 +1,6 @@
 ---
 name: smithue-control
-description: Drive and inspect a running Unreal Engine editor via the smithue-cli command line (SmithUE plugin). Use when the user wants to operate the UE editor, inspect or troubleshoot Blueprints (components, variables, functions, inheritance, mobility/transform, compile errors, diffs, data-flow), spawn/query actors, read materials, or run editor commands from outside the editor. Triggers: SmithUE, smithue-cli, 操作UE编辑器, 蓝图排故, blueprint troubleshooting, bp_get_summary, bp_get_component_details, inspect blueprint, UE editor automation, 读取蓝图组件, 蓝图父类/继承链, 组件 Mobility/Transform. Do NOT use for: editing UE C++ source/Build.cs (that is normal code editing), or projects with no running UE editor + SmithUE plugin.
+description: Inspect or modify Unreal Engine uasset resources (Blueprints, materials, static meshes, etc.) — and otherwise operate a running UE Editor — from outside via smithue-cli (SmithUE plugin). Triggers: SmithUE, smithue-cli, 操作UE编辑器, 查阅/修改蓝图·材质·静态网格, 蓝图排故. Not for editing UE C++/Build.cs, or when the UE Editor is not running.
 ---
 
 <!-- smithue-cli v0.10.0+ | SmithUE plugin v1.8.0+ -->
@@ -11,7 +11,9 @@ description: Drive and inspect a running Unreal Engine editor via the smithue-cl
 
 - SmithUE 是一个 UE5.2 编辑器插件，通过本地 HTTP 暴露编辑器能力；`smithue-cli` 是其 npm CLI（v0.10.0+）。全局安装 `npm i -g smithue-cli`，或免安装 `npx smithue-cli`。
 - 全局、项目无关：端口文件在 `%LOCALAPPDATA%\.smithue\<pid>.port`（Windows-only），任何工作目录都能发现编辑器，换项目无需任何配置。
-- 前提：UE 编辑器正在运行且启用了 SmithUE 插件（编辑器状态栏有绿点）。
+- **前提（缺一不可）**：
+  1. 目标 UE5.2 工程已**安装并启用 SmithUE 插件**（只装 `smithue-cli` 不够——插件才是真正暴露编辑器能力的一端）。**未装插件 → 先提醒用户安装，本 skill 所有命令都无法工作。**
+  2. **UE 编辑器正在运行**（状态栏 SmithUE 绿点）。每次操作前先 `smithue-cli status` 确认 `ready:true`，没就绪就停。
 
 ## 发现与调用（4 步，权威自描述）
 
