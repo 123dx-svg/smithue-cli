@@ -13,6 +13,7 @@ import { upgradeCommand } from './commands/upgrade.js';
 import { batchCommand } from './commands/batch.js';
 import { factoryCommand } from './commands/factory.js';
 import { skillCommand } from './commands/skill.js';
+import { specInferCommand } from './commands/spec.js';
 import { printResult, printError, setOutputOptions } from './output.js';
 
 const program = new Command();
@@ -214,6 +215,25 @@ program
   .action(async (cmdOpts: { print?: boolean; install?: string }) => {
     await skillCommand(cmdOpts);
   });
+
+// ---------------------------------------------------------------------------
+// spec
+// ---------------------------------------------------------------------------
+const spec = program.command('spec').description('Spec utilities');
+
+spec
+  .command('infer')
+  .description('Infer a draft spec from a golden blueprint')
+  .requiredOption('--from <bp_path>', 'source blueprint path for bp_describe_components')
+  .requiredOption('--out <spec.json>', 'write inferred spec JSON to this file')
+  .option('--spec-id <id>', 'override inferred spec id')
+  .option('--spec-name <name>', 'override inferred spec name')
+  .action(
+    async (cmdOpts: { from: string; out: string; specId?: string; specName?: string }) => {
+      const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
+      await specInferCommand({ ...cmdOpts, ...globals });
+    },
+  );
 
 // ---------------------------------------------------------------------------
 // factory

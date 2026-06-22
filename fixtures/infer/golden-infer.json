@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "prop-inferred",
+  "name": "Prop (inferred)",
+  "description": "由 smithue-cli spec infer 从 /Game/SmithUETest/BP_SM_ComplianceProbe_Cube 自动生成。命名规则需人工确认。",
+  "ownership": {
+    "folderGlobs": [
+      "/Game/SmithUETest/**"
+    ]
+  },
+  "rules": {
+    "naming": {
+      "pattern": "^BP_.+",
+      "required": false
+    },
+    "parentClass": {
+      "allowlist": [
+        "/Script/Engine.Actor"
+      ],
+      "required": true
+    },
+    "components": [
+      {
+        "name": "StaticMeshComponent",
+        "class": "StaticMeshComponent",
+        "required": true,
+        "mobility": "Static",
+        "collisionProfile": "BlockAll",
+        "materialSlotsFilled": true
+      }
+    ],
+    "lod": {
+      "minLod0": false
+    }
+  }
+}
