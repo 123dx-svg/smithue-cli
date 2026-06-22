@@ -144,3 +144,82 @@ smithue-cli skill --install C:\Users\you\.agents\skills\smithue-control  # 安�
 - 插件仓库：github.com/123dx-svg/SmithUE
 - CLI 仓库：github.com/123dx-svg/smithue-cli（npm 包名 `smithue-cli`）
 - 完整命令参考：`smithue-cli list` 实时查询，或看插件仓库 TOOLS.md。
+
+## 企业级资产装配与合规引擎工作流
+
+SmithUE v1.10.0 起，smithue-cli 提供以下高层工作流命令，构建在已有原子工具之上。
+
+### 前提：宿主工程配置
+
+在宿主工程根创建 `smithue.config.json`（不进 npm 包）：
+```json
+{
+  "specsDir": ".smithue/specs",
+  "devContentRoot": "/Game/SmithUETest",
+  "ownership": {
+    "include": ["/Game/MyStudio/**"],
+    "exclude": ["/Game/ThirdParty/**", "/Game/UltraDynamicSky/**"]
+  }
+}
+```
+
+### 规范生成（零学习成本，普通用户不手写 JSON）
+
+**方式 A：spec infer（从黄金 BP 反推草稿）**
+```powershell
+# TA 手工做一个合规 BP，工具自动反推规范草稿
+smithue-cli spec infer --from /Game/MyStudio/Props/BP_Crate_Golden --out .smithue/specs/prop.json
+# 然后人工确认 naming.pattern（标 needs-confirm 的字段）
+```
+
+**方式 B：AI 生成**
+> 向 AI agent 说人话描述规范（“道具蓝图，继承 BP_PropBase，BlockAll 碰撞”），
+> AI 读 `smithue-cli/schemas/spec.schema.json` 生成草稿 → 校验器自检 → 用户审阅。
+> **普通用户不手写 JSON。**
+
+### factory：批量生成合规蓝图（dry-run）
+
+```powershell
+# dry-run：预览将创建的 BP（不写入）
+smithue-cli factory --spec prop --dry-run --out plan.json
+
+# 查看计划
+cat plan.json  # operations: [{type:"create_bp",...}, {type:"skip_existing",...}]
+```
+
+> v1 注意：`--apply` 尚未实现；使用 dry-run 规划后由 AI agent 调用原子工具执行。
+
+### lint：合规审计（report-only）
+
+```powershell
+# 审计并输出报告
+smithue-cli lint --spec prop --out report.json
+
+# CI 模式（有违规时退出码非 0）
+smithue-cli lint --spec prop || echo "COMPLIANCE VIOLATIONS FOUND"
+```
+
+报告格式包含：`findings`（违规列表）、`unverifiable`（继承盲区）、`checked_assets`（已检查数）。
+
+### spec 文件格式参考
+
+spec 文件存宿主工程（git 追踪，不进 npm 包）：
+```json
+{
+  "schemaVersion": "1.0.0",
+  "id": "prop",
+  "name": "道具蓝图规范",
+  "ownership": { "folderGlobs": ["/Game/MyStudio/Props/**"] },
+  "rules": {
+    "naming": { "pattern": "^BP_.+", "required": true },
+    "parentClass": { "allowlist": ["/Script/Engine.Actor"], "required": true },
+    "components": [{
+      "name": "StaticMeshComponent", "class": "StaticMeshComponent",
+      "required": true, "mobility": "Static", "collisionProfile": "BlockAll",
+      "materialSlotsFilled": true
+    }]
+  }
+}
+```
+
+完整 schema → `smithue-cli/schemas/spec.schema.json`
