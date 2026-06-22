@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SmithUE Spec v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "rules"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "folderGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "naming": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "regex，如 ^BP_.+"
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
+        },
+        "outputFolder": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
+        },
+        "parentClass": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowlist": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "class"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "class": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "mobility": {
+                "type": "string",
+                "enum": [
+                  "Static",
+                  "Movable",
+                  "Stationary"
+                ]
+              },
+              "collisionProfile": {
+                "type": "string"
+              },
+              "materialSlotsFilled": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "lod": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minLod0": {
+              "type": "boolean",
+              "description": "要求至少有 LOD0"
+            }
+          }
+        }
+      },
+      "minProperties": 1
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "prop",
+  "name": "道具蓝图规范",
+  "description": "示例道具类蓝图规范（仅示例，不含真实 studio 规则）",
+  "ownership": {
+    "folderGlobs": [
+      "/Game/SmithUETest/**"
+    ]
+  },
+  "rules": {
+    "naming": {
+      "pattern": "^BP_.+",
+      "required": true
+    },
+    "outputFolder": {
+      "path": "/Game/SmithUETest",
+      "required": false
+    },
+    "parentClass": {
+      "allowlist": [
+        "/Script/Engine.Actor"
+      ],
+      "required": true
+    },
+    "components": [
+      {
+        "name": "StaticMeshComponent",
+        "class": "StaticMeshComponent",
+        "required": true,
+        "mobility": "Static",
+        "collisionProfile": "BlockAll",
+        "materialSlotsFilled": true
+      }
+    ],
+    "lod": {
+      "minLod0": true
+    }
+  }
+}

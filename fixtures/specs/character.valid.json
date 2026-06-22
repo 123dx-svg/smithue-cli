@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "character",
+  "name": "角色蓝图规范",
+  "description": "示例角色类蓝图规范（仅示例，不含真实 studio 规则）",
+  "ownership": {
+    "folderGlobs": [
+      "/Game/SmithUETest/Characters/**"
+    ]
+  },
+  "rules": {
+    "naming": {
+      "pattern": "^BP_.+",
+      "required": true
+    },
+    "outputFolder": {
+      "path": "/Game/SmithUETest/Characters",
+      "required": false
+    },
+    "parentClass": {
+      "allowlist": [
+        "/Script/Engine.Character",
+        "/Script/Engine.Pawn"
+      ],
+      "required": true
+    },
+    "components": [
+      {
+        "name": "CapsuleComponent",
+        "class": "CapsuleComponent",
+        "required": true,
+        "mobility": "Movable",
+        "collisionProfile": "Pawn"
+      },
+      {
+        "name": "SkeletalMeshComponent",
+        "class": "SkeletalMeshComponent",
+        "required": true,
+        "mobility": "Movable",
+        "materialSlotsFilled": true
+      }
+    ],
+    "lod": {
+      "minLod0": true
+    }
+  }
+}

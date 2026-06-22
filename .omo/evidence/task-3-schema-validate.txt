@@ -1,0 +1,4 @@
+fixtures/specs/prop.valid.json: PASS
+fixtures/specs/character.valid.json: PASS
+fixtures/specs/missing-schema-version.invalid.json: PASS(rejected) [{"instancePath":"","schemaPath":"#/required","keyword":"required","params":{"missingProperty":"schemaVersion"},"message":"must have required property 'schemaVersion'"}]
+fixtures/specs/bad-name-pattern.invalid.json: PASS(rejected) [{"instancePath":"/rules/naming/pattern","schemaPath":"#/properties/rules/properties/naming/properties/pattern/type","keyword":"type","params":{"type":"string"},"message":"must be string"}]
