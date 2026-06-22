@@ -1,0 +1,45 @@
+Task T9: CLI config resolution + ownership allowlist
+Date: 2026-06-22
+====================================================
+
+## Test Results (npm test -- src/config/ownership.test.ts src/config/resolver.test.ts)
+
+vitest run v1.6.1
+
+✓ src/config/ownership.test.ts (8 tests) 3ms
+✓ src/config/resolver.test.ts (10 tests) 28ms
+
+Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Duration  580ms
+
+## Full Suite (npm test)
+
+Test Files  19 passed (19)
+      Tests  148 passed (148)
+   Duration  1.67s
+
+## Typecheck (npm run typecheck)
+
+Exit 0 — no errors.
+
+## Ownership Litmus
+
+Config used:
+  include: ["/Game/MyStudio/**"]
+  exclude: ["/Game/UltraDynamicSky/**", "/Game/ThirdParty/**"]
+
+isOwned('/Game/UltraDynamicSky/BP_Sky')  → false  (hard-excluded)
+isOwned('/Game/ThirdParty/Plugin/BP_Foo') → false  (hard-excluded)
+isOwned('/Game/MyStudio/Props/SM_Crate')  → true   (include match)
+isOwned('/Game/OtherStudio/BP_Bar')       → false  (not in include)
+isOwned('/Game/Anything') [no includes]  → false  (conservative default)
+
+## Files Created
+
+src/config/types.ts       — SmithUEConfig + OwnershipConfig interfaces
+src/config/resolver.ts    — findConfigFile (walk-up) + loadConfig (AJV) + resolveConfig
+src/config/ownership.ts   — createOwnershipChecker + matchGlob (/** prefix)
+src/config/index.ts       — re-exports
+src/config/resolver.test.ts  — 10 tests (find/walk-up/loadValid/defaults/missing/invalid)
+src/config/ownership.test.ts — 8 tests (owned/excluded-UDS/excluded-3P/not-include/empty-include/conflict)
