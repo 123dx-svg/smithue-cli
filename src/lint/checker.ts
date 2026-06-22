@@ -56,7 +56,7 @@ export function checkBlueprint(
   if (spec.rules.parentClass?.required && spec.rules.parentClass.allowlist?.length) {
     const actual = bp.parent_class ?? '';
     const allowed = spec.rules.parentClass.allowlist;
-    if (!allowed.some((allowlisted) => actual.includes(allowlisted) || actual === allowlisted)) {
+    if (!allowed.some((allowlisted) => actual === allowlisted || actual.endsWith(`/${allowlisted}`) || actual.endsWith(`.${allowlisted}`))) {
       findings.push({
         asset_path: bp.bp_path,
         bp_path: bp.bp_path,
