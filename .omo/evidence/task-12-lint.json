@@ -1,0 +1,27 @@
+{
+  "task": "T12 lint checker",
+  "date": "2026-06-22",
+  "implemented": [
+    "src/commands/lint.ts",
+    "src/lint/checker.ts",
+    "src/lint/types.ts",
+    "src/lint/index.ts",
+    "fixtures/bp_describe_components.contract.json",
+    "src/lint/checker.test.ts"
+  ],
+  "rules": [
+    "naming",
+    "outputFolder",
+    "parentClass",
+    "components.required",
+    "mobility",
+    "collision.profile",
+    "materialSlotsFilled"
+  ],
+  "inherited_unverifiable": "recorded in unverifiable and excluded from findings",
+  "verification": {
+    "lsp_diagnostics": "clean for src/lint/checker.ts, src/commands/lint.ts, src/lint/checker.test.ts",
+    "npm_test": "passed: 21 files, 157 tests",
+    "npm_run_typecheck": "passed"
+  }
+}

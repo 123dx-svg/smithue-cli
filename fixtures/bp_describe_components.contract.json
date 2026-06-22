@@ -1,0 +1,50 @@
+{
+  "success": true,
+  "data": {
+    "blueprints": [
+      {
+        "bp_path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube",
+        "parent_class": "/Script/Engine.Actor",
+        "components": [
+          {
+            "name": "StaticMeshComponent",
+            "class": "StaticMeshComponent",
+            "source": "own",
+            "mobility": "Static",
+            "collision": { "profile": "BlockAll", "enabled": "QueryAndPhysics" },
+            "materials": ["/Engine/BasicShapes/BasicShapeMaterial"],
+            "mesh": "/Engine/BasicShapes/Cube.Cube",
+            "inherited_unverifiable": false
+          }
+        ]
+      },
+      {
+        "bp_path": "/Game/SmithUETest/BP_Violation_Example",
+        "parent_class": "/Script/Engine.Pawn",
+        "components": [
+          {
+            "name": "StaticMeshComponent",
+            "class": "StaticMeshComponent",
+            "source": "own",
+            "mobility": "Movable",
+            "collision": { "profile": "OverlapAll", "enabled": "QueryOnly" },
+            "materials": [],
+            "inherited_unverifiable": false
+          }
+        ]
+      },
+      {
+        "bp_path": "/Game/SmithUETest/BP_Inherited_Child",
+        "parent_class": "/Script/Engine.Actor",
+        "components": [
+          {
+            "name": "InheritedMesh",
+            "class": "StaticMeshComponent",
+            "source": "inherited",
+            "inherited_unverifiable": true
+          }
+        ]
+      }
+    ]
+  }
+}
