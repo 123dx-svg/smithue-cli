@@ -1,0 +1,33 @@
+T11 name collision evidence
+Input assets: SM_Crate + SK_Crate
+Derived BP name: BP_Crate
+Expected: both operations skip_name_collision; no suffix auto-generated
+
+{
+  "dry_run": true,
+  "spec_id": "prop",
+  "operations": [
+    {
+      "type": "skip_name_collision",
+      "asset_path": "/Game/SmithUETest/SM_Crate.SM_Crate",
+      "asset_name": "SM_Crate",
+      "bp_path": "/Game/SmithUETest/BP_Crate",
+      "spec_id": "prop",
+      "reason": "Name collision: multiple assets would produce BP 'BP_Crate'"
+    },
+    {
+      "type": "skip_name_collision",
+      "asset_path": "/Game/SmithUETest/SK_Crate.SK_Crate",
+      "asset_name": "SK_Crate",
+      "bp_path": "/Game/SmithUETest/BP_Crate",
+      "spec_id": "prop",
+      "reason": "Name collision: multiple assets would produce BP 'BP_Crate'"
+    }
+  ],
+  "summary": {
+    "create": 0,
+    "skip_existing": 0,
+    "skip_collision": 2,
+    "skip_not_owned": 0
+  }
+}

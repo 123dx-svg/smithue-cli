@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "assets": [
+      {
+        "name": "BP_SM_ComplianceProbe_Cube",
+        "path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube.BP_SM_ComplianceProbe_Cube",
+        "package_name": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube",
+        "package_path": "/Game/SmithUETest",
+        "class": "Blueprint",
+        "parent_class": "/Script/Engine.Actor",
+        "material_slots": 0,
+        "material_slot_paths": [],
+        "lod_count": 0,
+        "min_lod": 0,
+        "has_collision": false
+      },
+      {
+        "name": "BP_ReadbackProbe_Parent",
+        "path": "/Game/SmithUETest/BP_ReadbackProbe_Parent.BP_ReadbackProbe_Parent",
+        "package_name": "/Game/SmithUETest/BP_ReadbackProbe_Parent",
+        "package_path": "/Game/SmithUETest",
+        "class": "Blueprint",
+        "parent_class": "/Script/Engine.Actor",
+        "material_slots": 0,
+        "material_slot_paths": [],
+        "lod_count": 0,
+        "min_lod": 0,
+        "has_collision": false
+      },
+      {
+        "name": "SM_Rock",
+        "path": "/Game/SmithUETest/SM_Rock.SM_Rock",
+        "package_name": "/Game/SmithUETest/SM_Rock",
+        "package_path": "/Game/SmithUETest",
+        "class": "StaticMesh",
+        "parent_class": null,
+        "material_slots": 1,
+        "material_slot_paths": [
+          "/Engine/BasicShapes/BasicShapeMaterial"
+        ],
+        "lod_count": 1,
+        "min_lod": 0,
+        "has_collision": true
+      }
+    ]
+  }
+}

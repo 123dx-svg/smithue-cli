@@ -11,6 +11,7 @@ import { useCommand } from './commands/use.js';
 import { purge } from './commands/purge.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { batchCommand } from './commands/batch.js';
+import { factoryCommand } from './commands/factory.js';
 import { skillCommand } from './commands/skill.js';
 import { printResult, printError, setOutputOptions } from './output.js';
 
@@ -212,6 +213,28 @@ program
   .option('--install <dir>', 'install SKILL.md into the specified directory')
   .action(async (cmdOpts: { print?: boolean; install?: string }) => {
     await skillCommand(cmdOpts);
+  });
+
+// ---------------------------------------------------------------------------
+// factory
+// ---------------------------------------------------------------------------
+program
+  .command('factory <specId>')
+  .description('Plan asset-to-blueprint factory operations')
+  .option('--dry-run', 'emit the factory plan without writing assets', true)
+  .action(async (specId: string, cmdOpts: { dryRun?: boolean }) => {
+    const globals = program.opts<{
+      pid?: number;
+      project?: string;
+      port?: number;
+      strict?: boolean;
+      terse?: boolean;
+      out?: string;
+    }>();
+    await factoryCommand(
+      { specId, dryRun: cmdOpts.dryRun ?? true, ...globals },
+      { terse: globals.terse, outPath: globals.out },
+    );
   });
 
 // ---------------------------------------------------------------------------

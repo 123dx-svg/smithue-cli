@@ -1,0 +1,94 @@
+{
+  "task": "T11 factory dry-run",
+  "generated_from": "fixtures/factory/golden-plan.json",
+  "plan": {
+    "dry_run": true,
+    "spec_id": "prop",
+    "operations": [
+      {
+        "type": "create_bp",
+        "asset_path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube.BP_SM_ComplianceProbe_Cube",
+        "asset_name": "BP_SM_ComplianceProbe_Cube",
+        "bp_path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube",
+        "spec_id": "prop",
+        "steps": [
+          {
+            "tool": "bp_create",
+            "params": {
+              "bp_path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube",
+              "parent_class": "/Script/Engine.Actor"
+            }
+          },
+          {
+            "tool": "bp_add_component",
+            "params": {
+              "bp_path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube",
+              "component_class": "StaticMeshComponent",
+              "component_name": "StaticMeshComponent",
+              "static_mesh": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube.BP_SM_ComplianceProbe_Cube"
+            }
+          },
+          {
+            "tool": "bp_bulk_set_component_property",
+            "params": {
+              "bp_path": "/Game/SmithUETest/BP_SM_ComplianceProbe_Cube",
+              "component": "StaticMeshComponent",
+              "edits": [
+                { "property_path": "Mobility", "value": "Static" },
+                { "property_path": "Collision.Profile", "value": "BlockAll" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "create_bp",
+        "asset_path": "/Game/SmithUETest/BP_ReadbackProbe_Parent.BP_ReadbackProbe_Parent",
+        "asset_name": "BP_ReadbackProbe_Parent",
+        "bp_path": "/Game/SmithUETest/BP_ReadbackProbe_Parent",
+        "spec_id": "prop",
+        "steps": [
+          {
+            "tool": "bp_create",
+            "params": {
+              "bp_path": "/Game/SmithUETest/BP_ReadbackProbe_Parent",
+              "parent_class": "/Script/Engine.Actor"
+            }
+          },
+          {
+            "tool": "bp_add_component",
+            "params": {
+              "bp_path": "/Game/SmithUETest/BP_ReadbackProbe_Parent",
+              "component_class": "StaticMeshComponent",
+              "component_name": "StaticMeshComponent",
+              "static_mesh": "/Game/SmithUETest/BP_ReadbackProbe_Parent.BP_ReadbackProbe_Parent"
+            }
+          },
+          {
+            "tool": "bp_bulk_set_component_property",
+            "params": {
+              "bp_path": "/Game/SmithUETest/BP_ReadbackProbe_Parent",
+              "component": "StaticMeshComponent",
+              "edits": [
+                { "property_path": "Mobility", "value": "Static" },
+                { "property_path": "Collision.Profile", "value": "BlockAll" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "skip_not_owned",
+        "asset_path": "/Game/SmithUETest/SM_Rock.SM_Rock",
+        "asset_name": "SM_Rock",
+        "reason": "No spec matched for asset 'SM_Rock'"
+      }
+    ],
+    "summary": {
+      "create": 2,
+      "skip_existing": 0,
+      "skip_collision": 0,
+      "skip_not_owned": 1
+    }
+  }
+}
