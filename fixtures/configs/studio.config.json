@@ -1,0 +1,12 @@
+{
+  "specsDir": ".smithue/specs",
+  "devContentRoot": "/Game/SmithUETest",
+  "ownership": {
+    "include": ["/Game/MyStudio/**"],
+    "exclude": [
+      "/Game/UltraDynamicSky/**",
+      "/Game/ThirdParty/**",
+      "/Game/Plugins/**"
+    ]
+  }
+}

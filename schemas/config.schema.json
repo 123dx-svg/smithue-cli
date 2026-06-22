@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SmithUE CLI Config",
+  "type": "object",
+  "required": ["specsDir"],
+  "properties": {
+    "specsDir": {
+      "type": "string",
+      "description": "spec 文件目录（相对宿主工程根 或 绝对路径）。v1 = 集中单目录。"
+    },
+    "devContentRoot": {
+      "type": "string",
+      "default": "/Game/SmithUETest",
+      "description": "开发期 factory/lint 操作的安全根路径，防止误操作生产内容"
+    },
+    "ownership": {
+      "type": "object",
+      "description": "资产所有权控制：factory/lint 只作业 include 路径，硬排除 exclude 路径",
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "studio 拥有的 /Game 路径 glob 列表，如 [\"/Game/MyStudio/**\"]"
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "第三方/供应商路径 glob 列表，硬排除，如 [\"/Game/UltraDynamicSky/**\"]"
+        }
+      }
+    }
+  }
+}

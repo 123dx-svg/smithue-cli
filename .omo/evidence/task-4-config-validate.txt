@@ -1,0 +1,11 @@
+Task T4 - smithue.config.json schema validation evidence
+Timestamp: 2026-06-22T09:05:33.384Z
+
+studio.config.json: PASS
+ownership.exclude 含 UltraDynamicSky: PASS
+
+--- schema path ---
+schemas/config.schema.json
+
+--- fixture path ---
+fixtures/configs/studio.config.json
