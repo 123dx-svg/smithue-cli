@@ -1,0 +1,7 @@
+T10 classification test results:
+- npm test -- classify: 6 tests passed
+- npm test: 154 tests passed
+- npm run typecheck: passed
+- matched: BP_Crate → spec=prop
+- no-match: SM_Rock → specId=null
+- multi-match: BP_Char_Hero → first=prop, warning logged

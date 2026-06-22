@@ -1,0 +1,49 @@
+{
+  "command": "scan_assets",
+  "params": {
+    "folder_path": "/Game/SmithUETest"
+  },
+  "response": {
+    "status": "success",
+    "data": {
+      "assets": [
+        {
+          "name": "BP_Crate",
+          "path": "/Game/SmithUETest/BP_Crate.BP_Crate",
+          "package_name": "/Game/SmithUETest/BP_Crate",
+          "package_path": "/Game/SmithUETest",
+          "class": "Blueprint",
+          "parent_class": "/Script/CoreUObject.Class'/Script/Engine.Actor'",
+          "material_slots": 0,
+          "lod_count": 0,
+          "has_collision": false
+        },
+        {
+          "name": "SM_Rock",
+          "path": "/Game/SmithUETest/SM_Rock.SM_Rock",
+          "package_name": "/Game/SmithUETest/SM_Rock",
+          "package_path": "/Game/SmithUETest",
+          "class": "StaticMesh",
+          "parent_class": null,
+          "material_slots": 1,
+          "lod_count": 1,
+          "has_collision": true
+        },
+        {
+          "name": "BP_Char_Hero",
+          "path": "/Game/SmithUETest/BP_Char_Hero.BP_Char_Hero",
+          "package_name": "/Game/SmithUETest/BP_Char_Hero",
+          "package_path": "/Game/SmithUETest",
+          "class": "Blueprint",
+          "parent_class": "/Script/CoreUObject.Class'/Script/Engine.Character'",
+          "material_slots": 0,
+          "lod_count": 0,
+          "has_collision": false
+        }
+      ]
+    }
+  },
+  "_meta": {
+    "note": "Sample scan_assets fixture for classifier match/no-match/multi-match tests."
+  }
+}
