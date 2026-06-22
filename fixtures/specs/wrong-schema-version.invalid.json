@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "2.0.0",
+  "id": "prop",
+  "name": "Wrong schema version fixture",
+  "rules": {
+    "naming": {
+      "pattern": "^BP_.+",
+      "required": true
+    }
+  }
+}
