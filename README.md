@@ -110,6 +110,23 @@ Execute a custom action:
 smithue-cli exec my_action '{"key": "value"}'
 ```
 
+### Shell-safe parameter passing (recommended for complex JSON)
+
+Positional JSON strings can be mangled by some shells — notably **Windows PowerShell 5.1**, which strips quotes or splits on spaces. Use `--stdin` or `--params-file` for shell- and PowerShell-version-agnostic parameter passing:
+
+```powershell
+# --stdin: pipe JSON from a file (safe on all shells and PowerShell versions)
+Get-Content params.json -Raw | smithue-cli exec my_action --stdin
+
+# Shorthand: pass "-" as the params argument (equivalent to --stdin)
+Get-Content params.json -Raw | smithue-cli exec my_action -
+
+# --params-file: read params from a file directly
+smithue-cli exec my_action --params-file params.json
+```
+
+All three input modes are **mutually exclusive** — supplying more than one at a time is an error (exit 1). An explicit source with empty content is also an error. Omitting params entirely defaults to `{}`.
+
 ## Security Notes
 - Binds to 127.0.0.1 only. No external network exposure.
 - Port files in `%LOCALAPPDATA%\.smithue` are ACL-restricted to the current Windows user.

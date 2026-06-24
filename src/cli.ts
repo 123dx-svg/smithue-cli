@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { createRequire } from 'module';
+import { readFile } from 'node:fs/promises';
 import { execCommand } from './commands/exec.js';
+import { resolveExecParams } from './commands/exec-params.js';
 import { listCommand } from './commands/list.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
@@ -14,6 +16,7 @@ import { factoryCommand } from './commands/factory.js';
 import { skillCommand } from './commands/skill.js';
 import { specInferCommand } from './commands/spec.js';
 import { printResult, printError, setOutputOptions } from './output.js';
+import { SmithUEError } from './portfile.js';
 
 const program = new Command();
 const require = createRequire(import.meta.url);
@@ -42,19 +45,34 @@ program.hook('preAction', () => {
 // ---------------------------------------------------------------------------
 // exec
 // ---------------------------------------------------------------------------
+
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) {
+    throw new SmithUEError('--stdin (or "-") given but stdin is a TTY (no piped input)', 1);
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.from(chunk as ArrayBufferLike));
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 program
   .command('exec <command> [params]')
-  .description('Execute a SmithUE command')
-.action(async (command: string, params: string | undefined) => {
+  .description('Execute a SmithUE command (params via positional JSON, --stdin, or --params-file)')
+  .option('--stdin', 'read params as JSON from stdin (or pass "-" as the params arg)')
+  .option('--params-file <path>', 'read params as JSON from a file')
+  .action(async (command: string, params: string | undefined, options: { stdin?: boolean; paramsFile?: string }) => {
     const globals = program.opts<{ pid?: number; project?: string; port?: number; strict?: boolean }>();
-    let parsedParams: Record<string, unknown> = {};
-    if (params) {
-      try {
-        parsedParams = JSON.parse(params) as Record<string, unknown>;
-      } catch {
-        printError(new Error(`params must be valid JSON, got: ${params}`));
-        return;
-      }
+    let parsedParams: Record<string, unknown>;
+    try {
+      parsedParams = await resolveExecParams(
+        { positional: params, stdin: options.stdin, paramsFile: options.paramsFile },
+        { readStdin, readFile: (p) => readFile(p, 'utf8') },
+      );
+    } catch (err) {
+      printError(err);
+      return;
     }
     await execCommand(command, parsedParams, { ...globals });
   });

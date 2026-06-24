@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.13.0 — Exec param input modes
+
+### Added
+- `exec --stdin`: read params as JSON from stdin (pipe-safe; works identically on PowerShell 5.1, 7+, cmd, bash).
+- `exec --params-file <path>`: read params from a file.
+- `exec <cmd> -`: shorthand for `--stdin` (Unix convention).
+- UTF-8 BOM stripping for stdin and file inputs (common in Windows redirections).
+
+### Changed (breaking for edge cases)
+- Params are now validated to be a JSON **object** across all three input modes; arrays, scalars, and `null` are rejected with exit code 1. Previously, non-object positional params flowed through unchecked.
+- Invalid-JSON input from the positional path now exits with code **1** (Bad input) instead of code 4.
+
+### Notes
+- The three input modes are mutually exclusive; supplying more than one at a time exits 1.
+- An explicit source with empty content exits 1.
+- Zero sources still defaults to `{}` as before.
+
 ## v0.9.1 — Packaging polish
 
 ### Fixed

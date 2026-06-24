@@ -56,9 +56,18 @@ $env:SMITHUE_STRICT=1; smithue-cli status
 
 ## ⚠️ Gotchas（必读，按踩坑频率排序）
 
-1. ❌ PowerShell 里直接传 `'{"k":"v"}'` JSON
-   ✅ 转义双引号：`'{\"k\":\"v\"}'`
-   💡 npm.cmd 会重解析命令行并吞掉未转义的双引号，UE 端收到残缺 JSON。
+1. ❌ PowerShell 里直接传 `'{"k":"v"}'` JSON（各版本行为不同，会吞引号/拆参数）
+   ✅ 改用 `--stdin` 或 `--params-file`，完全绕开 shell 引号解析：
+   ```powershell
+   # --stdin（推荐，适用于 PS 5.1 / 7+ / cmd / bash）
+   Get-Content params.json -Raw | npx smithue-cli exec <command> --stdin
+   # 简写：用 "-" 作为 params 参数
+   Get-Content params.json -Raw | npx smithue-cli exec <command> -
+   # --params-file：直接读文件
+   npx smithue-cli exec <command> --params-file params.json
+   ```
+   ✅ 或者转义双引号（旧做法）：`'{\"k\":\"v\"}'`
+   💡 `--stdin` / `--params-file` 是 shell 版本无关的推荐方式；三种来源互斥，多填一个报错（exit 1）。
 
 2. ❌ 假设所有命令都用 `bp_path` 参数
    ✅ 部分命令参数名不同：`bp_get_compile_errors` 用 `blueprint_path`；`find_asset` 用 `name_pattern`；`get_actor_property` 用 `actor_label`。先 `list_tools` 查 schema。

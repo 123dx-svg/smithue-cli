@@ -39,6 +39,17 @@ npx smithue-cli status --pid 1234
 npx smithue-cli exec ping '{}'
 ```
 
+**Shell-safe param passing** (recommended for JSON with nested quotes — avoids PowerShell quoting issues):
+```powershell
+# --stdin: pipe JSON (safe on PowerShell 5.1, 7+, cmd, bash)
+Get-Content params.json -Raw | npx smithue-cli exec my_action --stdin
+# shorthand: "-" as params arg
+Get-Content params.json -Raw | npx smithue-cli exec my_action -
+# --params-file: read from file
+npx smithue-cli exec my_action --params-file params.json
+```
+Three sources (`--stdin`, `--params-file`, positional JSON) are mutually exclusive — supplying more than one exits 1.
+
 ## list
 ```bash
 npx smithue-cli list
