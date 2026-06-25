@@ -232,3 +232,76 @@ spec 文件存宿主工程（git 追踪，不进 npm 包）：
 ```
 
 完整 schema → `smithue-cli/schemas/spec.schema.json`
+
+## 蓝图工具选型 — 防误判指南 (Blueprint Tool Selection Anti-Misjudgment)
+
+### 决策规则（先读这条）
+
+| 需求 | 工具 |
+|------|------|
+| **事件逻辑**（Tick/BeginPlay/Overlap/碰撞/输入等） | ❌ 禁用 `bp_compile_code` → 用原子节点 API（见下方标准流程） |
+| **纯函数图**（无事件、数学/调用/赋值，无嵌套 if） | ✅ 可用 `bp_compile_code` |
+
+### `bp_compile_code` 硬边界（当前插件版本）
+
+- **只能编译函数图** `ReturnType FuncName(Type param, ...) { ... }`，**不支持**事件节点。
+- **不支持** Event Tick / 任何事件节点；**不支持**嵌套 if；math 必须是函数调用形式。
+- 语法形式：`ParseSignatureText` 读 `(` 前最后两个 token 为 returntype + funcname；`->` 和 `function` 关键字均**不是**语法。
+- 传入事件式代码（`event Tick() {...}`）时会返回带重定向的错误，指向原子节点工作流。
+- 返回字段：`data.success`（即使 HTTP 请求本身成功，编译失败时为 false）——**必须检查 `data.success`**，不能只看外层 status。
+
+> ⚠️ 别为弄清它的语法去读 `SmithUEBpCompiler.cpp`——`TOOLS.md` 已写明 "FUNCTION graphs only"。先看文档适用范围，再决定，不要先扎进 .cpp。
+
+### 事件类蓝图逻辑标准流程（已验证，UE 5.2）
+
+```bash
+# 1. 在 EventGraph 生成事件节点（如 Event Tick）
+npx smithue-cli exec bp_override_function '{"bp_path":"/Game/BP/MyActor","function_name":"ReceiveTick"}'
+
+# 2. 逐个建节点（node_id 是 GUID，nid_stale:true → 后续连线一律用此 GUID）
+#    function_name 格式：ClassName::FunctionName
+npx smithue-cli exec bp_create_node '{"bp_path":"/Game/BP/MyActor","graph_name":"EventGraph","function_name":"KismetMathLibrary::Sin"}'
+
+# 3. 查准确引脚名（不要猜，bp_search 按本地化标题可能搜不到）
+npx smithue-cli exec bp_describe_graph '{"bp_path":"/Game/BP/MyActor","graph_name":"EventGraph"}'
+
+# 4. 批量连线 + 设默认值
+npx smithue-cli exec bp_batch_op '{"bp_path":"/Game/BP/MyActor","graph_name":"EventGraph","operations":[{"op":"connect","params":{...}},{"op":"set_default","params":{...}}]}'
+
+# 5. 编译验证
+npx smithue-cli exec bp_compile '{"bp_path":"/Game/BP/MyActor"}'
+
+# 6. 若报"名为 'ReceiveTick' 的图表已存在"→ 删残留独立函数图再编译
+npx smithue-cli exec bp_remove_graph '{"bp_path":"/Game/BP/MyActor","graph_name":"ReceiveTick"}'
+
+# 7. 保存
+npx smithue-cli exec save_asset '{"asset_path":"/Game/BP/MyActor"}'
+
+# 8. 放入场景（用 _C 生成类后缀）
+npx smithue-cli exec spawn_actor '{"class":"/Game/BP/MyActor.MyActor_C","location":{"x":0,"y":0,"z":100}}'
+```
+
+**常用节点 function_name 格式（经验证）：**
+- `GameplayStatics::GetTimeSeconds`
+- `KismetMathLibrary::Multiply_DoubleDouble` / `Sin` / `MakeVector`
+- `SceneComponent::K2_SetRelativeLocation`
+- 组件取值：`K2Node_VariableGet` + `variable_name`
+- World Context：`K2Node_Self`
+
+**常用引脚名（UE 5.2 实测，engine 升级时需复核）：**
+- exec 输入引脚：`execute`
+- `K2_SetRelativeLocation` 目标：`self`，位置：`NewLocation`
+
+### 通用调用约定（易踩）
+
+```powershell
+# ✅ 正确：单引号包裹扁平 JSON（不要包成 {"params":{...}}）
+npx smithue-cli exec bp_compile_code '{"bp_path":"/Game/BP/X","code":"void Add(){}"}'
+
+# ❌ 错误：多行 here-string 的 JSON 会被换行拆断——压成单行
+# ❌ 错误：包成 {"params":{...}} 结构
+```
+
+- **端口动态**：读 `%LOCALAPPDATA%\.smithue\<pid>.port`（过滤 `project_name`），非固定 13721。
+- 偶发 "instance unreachable" / "engine is saving or GC" → 等几秒重试。
+- 详见插件 `docs/spec/TOOL_SPEC.md §3.1`（描述自描述边界规范）与 `PITFALLS.md #14`。
