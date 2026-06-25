@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.13.1 — Fix: bundle skill/SKILL.md in the published package
+
+### Fixed
+- **`smithue-control` skill was not shipped in the npm package.** `package.json` `files` whitelist omitted `skill/`, so `skill/SKILL.md` was excluded from the published tarball. `smithue-cli skill --install <dir>` therefore failed with `SKILL.md not found at … Reinstall smithue-cli to fix` on any clean install. Added `skill/` to `files`; verified `skill/SKILL.md` (12.8 kB) is now present in the packed artifact.
+
 ## v0.13.0 — Exec param input modes
 
 ### Added
