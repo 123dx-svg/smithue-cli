@@ -1,18 +1,20 @@
 {
   "name": "smithue-cli",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "type": "module",
   "main": "dist/cli.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "dev": "tsc -p tsconfig.build.json --watch"
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "postinstall": "node scripts/postinstall.cjs"
   },
   "files": [
     "dist/",
     "schemas/",
     "skill/",
+    "scripts/postinstall.cjs",
     "package.json",
     "README.md"
   ],

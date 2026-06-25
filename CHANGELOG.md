@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.13.2 — Auto-install the smithue-control skill on global install
+
+### Added
+- **`postinstall` hook** (`scripts/postinstall.cjs`) auto-deploys the `smithue-control` skill on a **global** install (`npm i -g smithue-cli`) — no extra `smithue-cli skill --install` step needed.
+  - Targets `~/.agents/skills/smithue-control/` (always) plus `~/.claude/skills/` and `~/.codex/skills/` when those agent homes already exist; idempotent (overwrites to refresh on update).
+  - Self-contained CommonJS, shipped as-is; runs ONLY on global installs (`npm_config_global=true`) so local dev `npm install` never touches your home dir.
+  - Fully defensive — never throws / never fails the install. Opt out with `SMITHUE_SKILL_NO_AUTOINSTALL=1`.
+- `smithue-cli skill --install <dir>` remains for manual / custom-location installs.
+
 ## v0.13.1 — Fix: bundle skill/SKILL.md in the published package
 
 ### Fixed
