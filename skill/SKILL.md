@@ -1,6 +1,6 @@
 ---
 name: smithue-control
-description: Inspect or modify Unreal Engine uasset resources (Blueprints, materials, static meshes, etc.) — and otherwise operate a running UE Editor — from outside via smithue-cli (SmithUE plugin). Triggers: SmithUE, smithue-cli, 操作UE编辑器, 查阅/修改蓝图·材质·静态网格, 蓝图排故. Not for editing UE C++/Build.cs, or when the UE Editor is not running.
+description: 通过 smithue-cli 从外部检查或修改正在运行的 UE 编辑器内容（SmithUE 插件）：查询和编辑蓝图、材质、静态网格、关卡及任意 /Game 资产，读取内容浏览器当前选中或打开的文件夹，执行蓝图排故与编译。凡涉及编辑器里有什么、当前打开或选中的文件夹、某个资产的属性、编辑 UE 内容等场景，一律查运行中的编辑器，不要去读磁盘目录。触发词：SmithUE、smithue-cli、操作 UE 编辑器、当前打开或选中的文件夹、内容浏览器、/Game 资产、列出或查询资产、查阅或修改蓝图材质静态网格、材质 WPO 或节点属性、蓝图排故或编译报错。不适用于编辑 UE 的 C++ 或 Build.cs 源码，以及编辑器未运行时。
 ---
 
 <!-- smithue-cli v0.10.0+ | SmithUE plugin v1.8.0+ -->
@@ -53,6 +53,14 @@ smithue-cli --strict exec ping {}  # 多实例时硬报错，不自动选
 # 或：
 $env:SMITHUE_STRICT=1; smithue-cli status
 ```
+
+## 内容路径 vs 磁盘路径（语义区分，最高频踩坑）
+
+**"文件夹 / 资产 / 内容" 默认指 UE 编辑器内部状态，不是 OS 磁盘目录。** 涉及 UE 内容时一律走 smithue-cli 查**运行中的编辑器**，**不要用 `view`/`ls`/`Get-ChildItem` 去读磁盘工程目录**（`F:\...\Content`）。
+
+- 「**当前打开 / 选中的文件夹**下有什么」→ `get_content_browser_selection`（返回 `selected_folders` 的真实 `/Game/...` 包路径，以及 `selected_folders_virtual`）→ 再用 `scan_assets` / `list_assets` 列该路径下的资产。
+- 内容路径形如 `/Game/BP/Foo`（包路径）；磁盘路径形如 `F:\Proj\Content\BP\Foo.uasset` —— **工具吃的是前者**。
+- 判定口诀：问"引擎里有什么 / 选了什么 / 某资产的属性"→ smithue-cli（编辑器状态）；问"仓库源码 / `.uplugin` / `.cpp` 文件"→ 才读磁盘。
 
 ## ⚠️ Gotchas（必读，按踩坑频率排序）
 
@@ -305,3 +313,51 @@ npx smithue-cli exec bp_compile_code '{"bp_path":"/Game/BP/X","code":"void Add()
 - **端口动态**：读 `%LOCALAPPDATA%\.smithue\<pid>.port`（过滤 `project_name`），非固定 13721。
 - 偶发 "instance unreachable" / "engine is saving or GC" → 等几秒重试。
 - 详见插件 `docs/spec/TOOL_SPEC.md §3.1`（描述自描述边界规范）与 `PITFALLS.md #14`。
+
+## 材质工具 — 防踩坑速查（输入索引 & 节点属性键）
+
+> 这两表 TOOLS.md 没列全，靠猜必踩坑。以下来自源码 `GetMaterialBaseInput()` / `HandleSetExpressionProperty()` 实测，可直接用。
+
+### `connect_material_pins` 的 `dest_input_index`（材质主输出引脚）
+
+| index | 输出引脚 |
+|---|---|
+| 0 | BaseColor |
+| 1 | Metallic |
+| 2 | Roughness |
+| 3 | Normal |
+| 4 | EmissiveColor |
+| 5 | Opacity |
+| 6 | OpacityMask |
+| **7** | **WorldPositionOffset（WPO）** ← TOOLS.md 只写到 6，但 **7 支持！** |
+
+> 8 及以上不支持（返回 nullptr → 连线失败）。WPO 自旋/顶点动画就连 `dest_input_index: 7`。
+
+### `set_expression_property` 按节点类型的合法 `properties` 键
+
+传错键**不报"非法键"**，只在**一个键都没匹配上**时回 `"No recognized properties were set"`（不会告诉你正确键名）——所以必须按下表传：
+
+| 节点类型 | 合法键 |
+|---|---|
+| 所有节点 | `description` |
+| **Constant** | `value`（**不是** `R` / `r`！） |
+| Constant3Vector | `r` `g` `b` |
+| ScalarParameter | `parameter_name` `default_value` |
+| VectorParameter | `parameter_name` `r` `g` `b` `a` |
+| CollectionParameter | `collection` `parameter_name` |
+| MaterialFunctionCall | `material_function` |
+| TextureSample | `sampler_type`（Color/Normal/Masks/Alpha/Grayscale/LinearColor/LinearGrayscale） `texture` |
+| Custom（HLSL） | `code` `output_type`（float/float1/float2/float3/float4） `inputs`[{name}] |
+| 带 SceneTextureId 的节点 | `scene_texture_id`（PPI_* 或 snake_case，如 `scene_color`/`custom_depth`） |
+
+> **不支持的**（无 handler，静默忽略）：Transform 节点的"空间(space)"设置、上表未列的节点属性。
+
+### 原子工具覆盖不到的高层效果（引导式，不写死配方）
+
+WPO 自旋 / 顶点动画 / 自定义算法这类原子工具拼不出的效果，标准做法是：
+
+1. 用 **Custom 节点**承载逻辑（`set_expression_property` 设 `code` / `output_type` / `inputs`）；
+2. 输出连 `connect_material_pins` 的 `dest_input_index: 7`（WorldPositionOffset）；
+3. 用 **`compile_material` 闭环验证**——编译报错会逐步指出问题，照着改。
+
+> ⚠️ **不要在 SKILL / 对话里硬记某个 HLSL intrinsic 或 UE 版本特有 API**（如某个 `Transform*` / `GetLocalPosition` 之类函数名）——它们随引擎版本变化，写死只会误导。需要具体函数名时**让 Agent 现查**：看引擎自带材质的 HLSL、官方文档，或直接读 `compile_material` 的报错逐步纠正。SKILL 只负责给出"原子拼装 + compile 验证"的**方法**，不负责给"某版本能跑的固定模板"。
