@@ -182,3 +182,7 @@ if ($LASTEXITCODE -eq 5) { Write-Host "Reconnecting (stale NID)..." }
 ## Known Limitations
 - Version 1 is Windows-only due to portfile path conventions.
 - No persistent configuration files. Use environment variables like `SMITHUE_PORT` or `SMITHUE_PID` for overrides.
+
+## Maintainers
+
+Publishing this package (git + npm) follows a fixed runbook — see **[`docs/RELEASE.md`](docs/RELEASE.md)** (registry gotcha, version bump, CJK-safe commit, `files` whitelist, skill deploy). The SmithUE plugin (separate repo, independent version) has its own release spec in the plugin's `docs/spec/RELEASE.md`.
