@@ -107,6 +107,19 @@ $env:SMITHUE_STRICT=1; smithue-cli status
    ```
    直接读 `error.code` / `error.fallback_cmd` 分支，不用正则。
 
+## 批量资产操作 / 迁移（长命令 · 弹窗 · redirector）
+
+**长命令**（`move_folder`/`move_paths`/`resave_packages`/`fixup_redirectors`/`resolve_redirectors` 等）在 game thread 同步执行，HTTP 会超时——这是正常的，命令仍在跑：
+- 用 `get_job_status {}`（**worker-safe**，game thread 忙时仍响应）轮询实时进度，别靠猜日志，**别重发**（会排第二次执行）。
+- 批量前 `set_dialog_auto_response {mode:"confirm"}` 自动点肯定按钮（跨语言，处理 RenameAssets 的 CDO 确认框）；**重启编辑器后 auto_response 会重置，需重新 arm**。弹窗同为 worker-safe：`get_active_dialog` / `dismiss_active_dialog` 在 game thread 卡住时仍可查/应答。
+- CJK 参数经 Windows 管道易损坏 → 优先 `--params-file`（显式 utf8）最稳。
+
+**内容插件化迁移**：不要磁盘搬移 + CoreRedirects（覆盖不全，易致 Actor 丢失/场景全黑），一律走编辑器内 rename。典型流程：
+1. `plan_migration` 预演：redirector 预估 + 顽固引用者（World/Blueprint）预警。
+2. `move_folder` / `move_paths` / `move_folders`（多映射）迁移；World 关卡用 `open_map` + `level_save {level_path}` Save-As，绕开关卡 CDO 框。
+3. redirector 清理三档：`list_redirectors` 先分类 → 无引用的 `fixup_redirectors` 直接删；有引用的 `resave_packages` 固化引用者后再删；World/BP/CDO 顽固项用 `redirect_references`（`resolve_redirectors` 对这些会崩，默认 `skip_poison` 已跳过）。
+4. `find_broken_assets` 体检 + `delete_empty_folders` 收尾。
+
 ## 蓝图排故命令目录（核心价值）
 
 | 命令 | 返回内容 | 关键参数 |
