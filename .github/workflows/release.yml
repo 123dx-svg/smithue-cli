@@ -1,0 +1,45 @@
+name: Release (npm publish)
+
+# Auto-publishes to npm when package.json version on main is higher than
+# what's already on the registry. Authenticates via the NPM_TOKEN repo
+# secret (granular access token, scoped to smithue-cli, bypass 2FA).
+# Rotate the token before it expires and update the secret:
+#   gh secret set NPM_TOKEN --repo 123dx-svg/smithue-cli
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # Release gate (mirrors docs/RELEASE.md §3): all green before publish.
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Publish if version bumped
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view smithue-cli version 2>/dev/null || echo "none")
+          echo "local=$LOCAL  registry=$REMOTE"
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "v$LOCAL already published — nothing to do."
+            exit 0
+          fi
+          echo "Publishing v$LOCAL ..."
+          npm publish --access public
