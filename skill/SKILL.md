@@ -43,12 +43,11 @@ npx smithue-cli exec <command> <params>                 # 4. 调用
 
 ## ⚠️ 通用 Gotchas（跨任务必读）
 
-1. **PowerShell 传 JSON 会吞引号/拆参**（各版本不一）→ 用 `--params-file`（推荐）或 `--stdin`，完全绕开 shell：
-   `Get-Content params.json -Raw | npx smithue-cli exec <cmd> --stdin`。**CJK（中文）参数尤其要走 `--params-file`**（管道代码页会损坏成 `??`，详见 batch-and-dialogs.md）。
-   **换机器/换 shell 仍有格式问题时的两条后路**（都在 skill 自带 `scripts/`，端口自动发现、UTF-8 直读文件、直发 HTTP，中文往返实测不坏）：
-   - 有 node：`node scripts/smithue-exec.mjs <command> params.json`
-   - **纯 Windows / 零 node**：`powershell -File scripts/smithue.ps1 <command> params.json`（用系统自带 `Invoke-RestMethod`）
-   > 认知：SmithUE 插件是**编辑器进程内的 HTTP 服务端**（`127.0.0.1:<port>/api/v1/execute`）。`smithue-cli`（node）只是**一个客户端**——任何能发 HTTP 的东西（curl / PowerShell `Invoke-RestMethod` / 上面两个脚本）都能调它。node/CLI 是**便利层，不是必需**；某台机器没装好 node 时，直接用 PS 脚本或 `Invoke-RestMethod` 打端口即可。
+1. **PowerShell 传 JSON 会吞引号/拆参**（各版本不一）→ **首选直接用 CLI 配 `--params-file`**（参数写进文件，绕开 shell 引号解析）：
+   `npx smithue-cli exec <cmd> --params-file params.json`。**CJK（中文）参数务必走 `--params-file`**（命令行/管道代码页会把中文损坏成 `??`，详见 batch-and-dialogs.md）。
+   若 `--params-file` 仍有格式/编码问题，用 skill 自带 `scripts/` 转换，按此顺序降级（两者都自动发现端口、UTF-8 直读文件、直发 HTTP，中文往返实测不坏）：
+   ① `powershell -File scripts/smithue.ps1 <command> params.json`（PowerShell 自带 `Invoke-RestMethod`）
+   ② `node scripts/smithue-exec.mjs <command> params.json`
 2. **别假设所有命令都用 `bp_path`**：`bp_get_compile_errors` 用 `blueprint_path`、`find_asset` 用 `name_pattern`、`get_actor_property` 用 `actor_label`……先 `list_tools` 查 schema。
 3. **"No portfiles found" 但编辑器在跑**：错误里已内置 `curl` 兜底命令，复制验证连通；查状态栏 SmithUE 绿点、端口目录、或 `SMITHUE_PORT=<port>` 直连。
 4. **改完插件 C++ 命令后**必须重启编辑器（启动重编译加载新 DLL），否则连旧进程看不到新命令。
