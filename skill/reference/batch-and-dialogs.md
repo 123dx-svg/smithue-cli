@@ -31,4 +31,4 @@
 
 - **优先 `--params-file`**（显式 utf8 读文件，最稳）；或 `--stdin` 配合 UTF-8 无 BOM 文件。
 - 跨语言场景优先 `confirm` 模式（引擎内匹配肯定词，无需传中文）。
-- 万不得已用 node 直发 HTTP（body 用 `\uXXXX` 转义），完全绕开 shell 与 CLI 编码。
+- **换机器/换 shell 仍损坏 → 用 skill 自带 `scripts/smithue-exec.mjs`**：`node scripts/smithue-exec.mjs <command> params.json`，零依赖、自动发现端口、UTF-8 直读文件 + 直发 HTTP，完全绕开 shell 引号与管道编码。
