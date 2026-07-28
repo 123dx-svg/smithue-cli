@@ -23,7 +23,10 @@ export class SmithUEClient {
   }
 
   private headers(): Record<string, string> {
-    return { 'Content-Type': 'application/json' };
+    // Include charset so the plugin (UE C++ side) never falls back to a system
+    // ANSI/GBK code page when parsing the request body — otherwise CJK params
+    // (e.g. a Chinese button_text / asset path) can be corrupted server-side.
+    return { 'Content-Type': 'application/json; charset=utf-8' };
   }
 
   private async fetchJson<T>(path: string, init: RequestInit, timeoutMs?: number): Promise<T> {
@@ -70,7 +73,16 @@ export class SmithUEClient {
 
     // Check AbortError FIRST — AbortError can have any message including 'fetch failed'
     if (error.name === 'AbortError') {
-      return new Error(`SmithUE plugin timed out. Command: ${command} (port: ${this.port})`);
+      return new Error(
+        `SmithUE plugin timed out. Command: ${command} (port: ${this.port})\n` +
+        `  The command may STILL be running on the game thread — long batch ops\n` +
+        `  (move_folder / move_paths / resave_packages / fixup_redirectors / resolve_redirectors)\n` +
+        `  routinely exceed the HTTP timeout while continuing to completion.\n` +
+        `  Poll live progress (worker-safe, works while the editor is busy):\n` +
+        `    smithue-cli exec get_job_status {}\n` +
+        `  Do NOT re-send the command — that queues a SECOND run. Confirm the real\n` +
+        `  outcome via get_job_status reaching 100% (or the editor log), then continue.`
+      );
     }
 
     const msg = error.message ?? '';
