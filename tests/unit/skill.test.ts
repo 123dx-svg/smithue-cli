@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('node:fs/promises', () => ({
   readFile: vi.fn(),
-  writeFile: vi.fn(),
   mkdir: vi.fn(),
+  cp: vi.fn(),
 }));
 
 vi.mock('../../src/output.js', () => ({
@@ -11,13 +11,13 @@ vi.mock('../../src/output.js', () => ({
   printError: vi.fn(),
 }));
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, cp } from 'node:fs/promises';
 import * as output from '../../src/output.js';
 import { skillCommand } from '../../src/commands/skill.js';
 
 const mockReadFile = vi.mocked(readFile);
-const mockWriteFile = vi.mocked(writeFile);
 const mockMkdir = vi.mocked(mkdir);
+const mockCp = vi.mocked(cp);
 const mockPrintResult = vi.mocked(output.printResult);
 const mockPrintError = vi.mocked(output.printError);
 
@@ -54,21 +54,26 @@ describe('skillCommand', () => {
     await skillCommand({ print: true });
 
     expect(mockReadFile).toHaveBeenCalledTimes(1);
-    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockCp).not.toHaveBeenCalled();
     expect(mockMkdir).not.toHaveBeenCalled();
     expect(stdoutSpy).toHaveBeenCalledWith('sample skill content');
     expect(mockPrintError).not.toHaveBeenCalled();
   });
 
-  it('installs SKILL.md into target directory with --install', async () => {
-    mockReadFile.mockResolvedValueOnce('sample skill content');
+  it('installs the WHOLE skill bundle (SKILL.md + reference/ + scripts/) with --install', async () => {
+    mockReadFile.mockResolvedValueOnce('sample skill content'); // SKILL.md sentinel
     mockMkdir.mockResolvedValueOnce(undefined);
-    mockWriteFile.mockResolvedValueOnce(undefined);
+    mockCp.mockResolvedValueOnce(undefined);
 
     await skillCommand({ install: 'C:/tmp/agent' });
 
     expect(mockMkdir).toHaveBeenCalledWith(expect.stringContaining('agent'), { recursive: true });
-    expect(mockWriteFile).toHaveBeenCalledWith(expect.stringMatching(/agent[\\/]SKILL\.md$/), 'sample skill content', 'utf-8');
+    // Recursively copies the whole bundle dir, not just SKILL.md.
+    expect(mockCp).toHaveBeenCalledWith(
+      expect.stringMatching(/skill$/),
+      expect.stringContaining('agent'),
+      { recursive: true },
+    );
     expect(mockPrintResult).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
     expect(mockPrintError).not.toHaveBeenCalled();
   });

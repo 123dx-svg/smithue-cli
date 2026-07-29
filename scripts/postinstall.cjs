@@ -5,11 +5,11 @@
 // postinstall would break the user's install.
 //
 // Behavior (global installs only):
-//   writes <skillsDir>/smithue-control/SKILL.md to
-//     ~/.agents/skills   (primary ecosystem — always)
-//     ~/.claude/skills   (only if ~/.claude exists)
-//     ~/.codex/skills    (only if ~/.codex exists)
-//   Idempotent: overwrites SKILL.md so updates refresh the skill.
+//   copies the ENTIRE skill/ bundle (SKILL.md + reference/ + scripts/) to
+//     ~/.agents/skills/smithue-control   (primary ecosystem — always)
+//     ~/.claude/skills/smithue-control   (only if ~/.claude exists)
+//     ~/.codex/skills/smithue-control    (only if ~/.codex exists)
+//   Idempotent: overwrites so updates refresh the whole skill.
 //   Opt out with SMITHUE_SKILL_NO_AUTOINSTALL=1.
 'use strict';
 
@@ -20,9 +20,9 @@ try {
     const os = require('node:os');
     const path = require('node:path');
 
-    const skillSrc = path.resolve(__dirname, '..', 'skill', 'SKILL.md');
-    if (fs.existsSync(skillSrc)) {
-      const content = fs.readFileSync(skillSrc, 'utf-8');
+    const skillDir = path.resolve(__dirname, '..', 'skill');
+    // Presence of SKILL.md is the sentinel that the bundle exists.
+    if (fs.existsSync(path.join(skillDir, 'SKILL.md'))) {
       const home = os.homedir();
 
       const skillsDirs = [path.join(home, '.agents', 'skills')];
@@ -37,15 +37,16 @@ try {
         try {
           const dest = path.join(skillsDir, 'smithue-control');
           fs.mkdirSync(dest, { recursive: true });
-          fs.writeFileSync(path.join(dest, 'SKILL.md'), content, 'utf-8');
-          installed.push(path.join(dest, 'SKILL.md'));
+          // Copy the whole bundle (SKILL.md + reference/ + scripts/), not just SKILL.md.
+          fs.cpSync(skillDir, dest, { recursive: true });
+          installed.push(dest);
         } catch (_) {
           // ignore a single target failure (permissions / read-only)
         }
       }
 
       if (installed.length > 0) {
-        console.log('[smithue-cli] smithue-control skill installed to:');
+        console.log('[smithue-cli] smithue-control skill (SKILL.md + reference/ + scripts/) installed to:');
         for (const p of installed) console.log('  ' + p);
         console.log('[smithue-cli] reload your AI tool to pick it up. Opt out: SMITHUE_SKILL_NO_AUTOINSTALL=1');
       }
