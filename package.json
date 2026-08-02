@@ -1,6 +1,6 @@
 {
   "name": "smithue-cli",
-  "version": "0.14.1",
+  "version": "0.15.0",
   "type": "module",
   "main": "dist/cli.js",
   "scripts": {

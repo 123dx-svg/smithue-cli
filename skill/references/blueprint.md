@@ -26,6 +26,7 @@ Token 控制：默认 `scope=self`、`detail=compact`、带 `limit`；先看 cou
 
 - 先查它的 C++ 父类模块在当前构建里是否可解析：`bp_get_class_members '{"bp_path":"<NativeClassName>"}'`；对比完好兄弟蓝图 `get_asset_info` 的 tags.ParentClass。
 - 典型根因：P4 管理的蓝图继承 Git 分支里的 C++ 父类，切分支后父模块缺失 → 父引用断裂 → 整批退化成空壳。
+- **父类改名/换模块/换插件位置的完整修复流程（含 CoreRedirects 语法、固化退役、致命时序陷阱）→ 见 parent-class-redirect.md**（经 UE5.8.1 实验验证）。
 
 ## 批量组件编辑 + 文件夹作用域
 

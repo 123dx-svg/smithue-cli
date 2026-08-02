@@ -7,7 +7,7 @@ description: 通过 smithue-cli 从外部检查或修改正在运行的 UE 编�
 
 # SmithUE Control：用 smithue-cli 驱动/检查运行中的 UE 编辑器
 
-本 SKILL 主体只讲**通用入口 + 高频踩坑 + 去哪找细节**。领域细节（迁移、蓝图、材质、合规、批量操作）在同目录 `reference/`，按需读；命令的权威参数 schema 永远以 `list_tools` 现查为准。
+本 SKILL 主体只讲**通用入口 + 高频踩坑 + 去哪找细节**。领域细节（迁移、蓝图、材质、合规、批量操作）在同目录 `references/`，按需读；命令的权威参数 schema 永远以 `list_tools` 现查为准。
 
 ## 前置 / 适用
 
@@ -61,7 +61,7 @@ npx smithue-cli exec <command> <params>                 # 4. 调用
 - **现成流程** → `{SmithUE}/docs/usage/workflows/`：如 `asset-to-blueprint.md`、`compliance-lint.md`、`spec-infer.md`
 - **范式 / 接口 / 合规规则** → `{SmithUE}/docs/usage/`：`PARADIGM.md`、`SPI.md`、`COMPLIANCE_RULES_v1.md`、`AUDIT_PRIMITIVES_CONTRACT.md`
 - **项目自定义规范** → 宿主工程 `smithue.config.json` 的 `specsDir`（默认 `.smithue/specs/`）：**存在就按项目规范执行**，不要另立标准
-- **本 skill 的操作层 recipe** → 同目录 `reference/`（比插件 spec 更贴近调用层的步骤）
+- **本 skill 的操作层 recipe** → 同目录 `references/`（比插件 spec 更贴近调用层的步骤）
 
 判定：动手前先查上述目录，命中就照 spec/recipe 做；都没有再用通用做法，并考虑把新沉淀写回对应 spec。
 
@@ -69,11 +69,13 @@ npx smithue-cli exec <command> <params>                 # 4. 调用
 
 | 任务 | 起手 | 深读 |
 |---|---|---|
-| 迁移资产/关卡进内容插件、目录重组、清 redirector | `plan_migration`→`move_folder`→`list_redirectors` | **reference/asset-migration.md** |
-| 批量/长命令超时、卡住、弹模态框、看进度 | `get_job_status` · `set_dialog_auto_response` | **reference/batch-and-dialogs.md** |
-| 读/改/排故蓝图、批量设组件属性、代码生成逻辑 | `bp_get_summary` · `bp_health_check` | **reference/blueprint.md** |
-| 连材质引脚、设节点属性、WPO/顶点动画 | `list_tools '{"domain":"Material"}'` | **reference/material.md** |
-| 合规校验、批量生成合规蓝图、spec 装配 | `smithue-cli lint`/`factory`/`spec infer` | **reference/compliance.md** |
+| 迁移资产/关卡进内容插件、目录重组、清 redirector | `plan_migration`→`move_folder`→`list_redirectors` | **references/asset-migration.md** |
+| 蓝图父类丢失/空壳、C++ 类改名·换模块·换插件位置后修复、CoreRedirects | `find_broken_assets` · `bp_health_check`（⚠️ 先禁止保存空壳蓝图） | **references/parent-class-redirect.md** |
+| 批量/长命令超时、卡住、弹模态框、看进度 | `get_job_status` · `set_dialog_auto_response` | **references/batch-and-dialogs.md** |
+| 读/改/排故蓝图、批量设组件属性、代码生成逻辑 | `bp_get_summary` · `bp_health_check` | **references/blueprint.md** |
+| 连材质引脚、设节点属性、WPO/顶点动画 | `list_tools '{"domain":"Material"}'` | **references/material.md** |
+| 合规校验、批量生成合规蓝图、spec 装配 | `smithue-cli lint`/`factory`/`spec infer` | **references/compliance.md** |
+| 资产减负：贴图/材质/Mesh/骨骼优化、重复去重、文件整理、版本警告、骨骼缺失修复 | `get_dependency_closure` · `plan_migration` | **references/asset-slimming.md** |
 
 除上述外还有 Asset/Editor/Niagara/Level/Data/Sequencer/PIE/Animation/Input/UMG/Observation/Viewport/Environment/Interaction/Curve/RenderTarget/Physics/Debug/System/Project/Analysis 等域——用 `list` + `list_tools` 探索，别靠记忆。
 

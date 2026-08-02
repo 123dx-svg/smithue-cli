@@ -5,7 +5,7 @@
 // postinstall would break the user's install.
 //
 // Behavior (global installs only):
-//   copies the ENTIRE skill/ bundle (SKILL.md + reference/ + scripts/) to
+//   copies the ENTIRE skill/ bundle (SKILL.md + references/ + scripts/) to
 //     ~/.agents/skills/smithue-control   (primary ecosystem — always)
 //     ~/.claude/skills/smithue-control   (only if ~/.claude exists)
 //     ~/.codex/skills/smithue-control    (only if ~/.codex exists)
@@ -37,8 +37,14 @@ try {
         try {
           const dest = path.join(skillsDir, 'smithue-control');
           fs.mkdirSync(dest, { recursive: true });
-          // Copy the whole bundle (SKILL.md + reference/ + scripts/), not just SKILL.md.
+          // Copy the whole bundle (SKILL.md + references/ + scripts/), not just SKILL.md.
           fs.cpSync(skillDir, dest, { recursive: true });
+          // Legacy cleanup: cpSync merges, so a stale `reference/` dir from
+          // pre-rename bundles would survive the upgrade — remove it.
+          const legacy = path.join(dest, 'reference');
+          if (fs.existsSync(legacy)) {
+            fs.rmSync(legacy, { recursive: true, force: true });
+          }
           installed.push(dest);
         } catch (_) {
           // ignore a single target failure (permissions / read-only)
@@ -46,7 +52,7 @@ try {
       }
 
       if (installed.length > 0) {
-        console.log('[smithue-cli] smithue-control skill (SKILL.md + reference/ + scripts/) installed to:');
+        console.log('[smithue-cli] smithue-control skill (SKILL.md + references/ + scripts/) installed to:');
         for (const p of installed) console.log('  ' + p);
         console.log('[smithue-cli] reload your AI tool to pick it up. Opt out: SMITHUE_SKILL_NO_AUTOINSTALL=1');
       }

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.15.0 — Skill bundle: rename reference/ → references/ + new domain docs
+
+### Changed
+- **Skill 目录规范化**：`skill/reference/` → `skill/references/`（对齐 Agent Skills 生态惯例）；SKILL.md 及全部文档内路径同步更新。
+- `skill --install` 与 `postinstall.cjs` 在安装后自动**清理旧 `reference/` 残留**（cp 为 merge 拷贝，升级用户目标目录中的旧目录不会被覆盖删除）；`--install` 输出新增 `migrated` 字段。
+
+### Added
+- `references/parent-class-redirect.md` — 蓝图父类丢失/空壳修复：位置移动 vs 改名判定决策树、CoreRedirects 语法、固化退役流程、致命时序陷阱（经 UE 5.8.1 实验验证）。
+- `references/asset-slimming.md` — 资产减负：贴图/材质/Mesh/骨骼（含骨骼缺失修复）/文件整理/资产版本警告六域的检测→决策→命令映射、次序铁律、SmithUE 能力缺口需求清单。
+- SKILL.md 路由表新增上述两个入口行。
+
 ## v0.13.2 — Auto-install the smithue-control skill on global install
 
 ### Added
