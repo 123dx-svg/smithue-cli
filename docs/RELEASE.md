@@ -68,14 +68,15 @@ git status                                                            # 干净
 
 ## 5. SKILL 部署（`smithue-control`）
 
-- **`skill/SKILL.md`（单数）是唯一发布 / 部署源**（在 `files` 白名单内）。**不要**改其它同名副本。
-- `scripts/postinstall.cjs` 在**全局安装**（`npm i -g smithue-cli`）时自动把 `skill/SKILL.md` 部署到：
-  - `~/.agents/skills/smithue-control/SKILL.md`（主，始终）
+- **`skill/`（SKILL.md + `references/` + `scripts/`）是唯一发布 / 部署源**（在 `files` 白名单内）。**不要**改其它同名副本。
+- `scripts/postinstall.cjs` 在**全局安装**（`npm i -g smithue-cli`）时自动把整个 `skill/` bundle 部署到：
+  - `~/.agents/skills/smithue-control/`（主，始终）
   - `~/.claude/skills/`、`~/.codex/skills/`（仅当对应目录已存在）
-  - 幂等覆盖；可用环境变量 `SMITHUE_SKILL_NO_AUTOINSTALL=1` 关闭。
+  - 幂等覆盖；自动清理 0.15 之前旧布局残留的 `reference/` 目录；可用环境变量 `SMITHUE_SKILL_NO_AUTOINSTALL=1` 关闭。
 - **本机已装、未走全局安装** → postinstall 不触发，需**手动同步**让当前环境立即生效：
   ```bash
-  node -e "const fs=require('fs'),os=require('os'),p=require('path');fs.writeFileSync(p.join(os.homedir(),'.agents','skills','smithue-control','SKILL.md'),fs.readFileSync('skill/SKILL.md','utf8'),'utf8')"
+  # 在仓库根目录（部署整个 bundle，含 legacy reference/ 清理）
+  node dist/cli.js skill --install "$HOME/.agents/skills/smithue-control"
   ```
 
 ## 6. 一键模板（复制即用）
