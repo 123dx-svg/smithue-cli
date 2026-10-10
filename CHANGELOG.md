@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.15.1 — 精简 SKILL 描述
+
+### Changed
+- **`skill/SKILL.md` 的 `description` 从 363 字精简到 193 字**（-47%）。
+  砍掉的是末尾那段「触发词：…」列表 —— 14 个词里 11 个在第一句已出现，纯属重复。
+  重写后为三段：**作用**（读写资产与属性 / 蓝图排故与编译 / 批量操作 / 资产迁移与合规审计）
+  → **触发条件**（提到任意 Unreal 资产类型，或粘贴 `/Game`、`/Script`、`.uasset`、`.umap` 路径）
+  → **消歧**（一律查运行中的编辑器，不要读磁盘目录）。
+  最后那句不是描述而是纠偏：没有它，模型看到 `/Game/...` 很容易直接去翻
+  `Content/` 下的 `.uasset`，这正是本 skill 最常见的误用。
+- 正文、`references/`、`scripts/` 未动。
+
+> 触发率**未做实测**。两条路都被环境堵死：
+> skill-creator 的 `scripts/run_eval.py` 对管道用 `select.select()`，Windows 下仅支持 socket
+> → 每条 query 挂在 `WinError 10038`，而调用方会把失败静默计为「未触发」；
+> 绕过后又发现本机 `claude -p` 连不上 API（持续 `api_retry`）。
+> 本次改动依据的是描述写作原则（作用 + 触发条件 + 消歧），不是量化结果。
+
 ## v0.15.0 — Skill bundle: rename reference/ → references/ + new domain docs
 
 ### Changed

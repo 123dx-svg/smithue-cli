@@ -1,6 +1,6 @@
 ---
 name: smithue-control
-description: 通过 smithue-cli 从外部检查或修改正在运行的 UE 编辑器内容（SmithUE 插件）：查询和编辑蓝图、材质、静态网格、关卡及任意 /Game 资产，读取内容浏览器当前选中或打开的文件夹，执行蓝图排故与编译，做资产迁移/项目插件化与合规审计。凡涉及编辑器里有什么、当前打开或选中的文件夹、某个资产的属性、编辑 UE 内容等场景，一律查运行中的编辑器，不要去读磁盘目录。触发词：SmithUE、smithue-cli、操作 UE 编辑器、当前打开或选中的文件夹、内容浏览器、/Game 资产、列出或查询资产、查阅或修改蓝图材质静态网格、材质 WPO 或节点属性、蓝图排故或编译报错、资产迁移、内容插件化、redirector、合规校验。不适用于编辑 UE 的 C++ 或 Build.cs 源码，以及编辑器未运行时。
+description: 用 smithue-cli 从外部驱动正在运行的 UE 编辑器（需 SmithUE 插件）：读写资产与属性、蓝图排故与编译、批量操作、资产迁移与合规审计。只要用户提到查看或修改任意 Unreal 资产类型（蓝图、材质、静态网格、关卡、UMG、Niagara…），或粘贴了 /Game、/Script、.uasset、.umap 路径，就用本技能。一律查运行中的编辑器，不要去读磁盘目录。
 ---
 
 <!-- smithue-cli v0.13+ | SmithUE plugin v1.10+ -->
