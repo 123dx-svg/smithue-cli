@@ -26,7 +26,7 @@ export async function batchCommand(commands: string[], opts: GlobalOpts): Promis
 
   try {
     const discovered = await discoverPort(opts);
-    const client = new SmithUEClient({ host: '127.0.0.1', port: discovered.port });
+    const client = new SmithUEClient({ host: '127.0.0.1', port: discovered.port, expectedPid: discovered.pid, expectedInstanceId: discovered.instance_id });
 
     const results: BatchResult[] = [];
 

@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { getPortfileDir } from './portfile.js';
 
 export interface RegistryEntry {
+  instance_id?: string;
   projectId: string;
   pid: number;
   port: number;

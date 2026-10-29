@@ -79,7 +79,7 @@ describe('batchCommand', () => {
     await batchCommand(['status', 'list'], {});
 
     expect(mockDiscoverPort).toHaveBeenCalledWith({});
-    expect(MockSmithUEClient).toHaveBeenCalledWith({ host: '127.0.0.1', port: 13721 });
+    expect(MockSmithUEClient).toHaveBeenCalledWith(expect.objectContaining({ host: '127.0.0.1', port: 13721, expectedPid: 1001 }));
     expect(mockPrintResult).toHaveBeenCalledWith([
       { command: 'status', ok: true, data: statusData },
       { command: 'list', ok: true, data: listData },

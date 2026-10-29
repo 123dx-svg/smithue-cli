@@ -12,7 +12,7 @@ let env: NodeJS.ProcessEnv;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'smithue-skill-routing-'));
   mkdirSync(join(root, '.smithue', 'sessions'), { recursive: true });
-  env = { ...process.env, LOCALAPPDATA: root };
+  env = { ...process.env, LOCALAPPDATA: root, XDG_RUNTIME_DIR: root };
   for (const key of ['SMITHUE_PORT', 'SMITHUE_PID', 'SMITHUE_PROJECT', 'SMITHUE_SESSION']) delete env[key];
   for (const pid of [1001, 1002]) {
     writeFileSync(join(root, '.smithue', `${pid}.port`), JSON.stringify({
@@ -23,11 +23,15 @@ beforeEach(() => {
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-for (const language of ['node', 'powershell']) {
-  const supported = language === 'node' || process.platform === 'win32';
-  const script = fileURLToPath(new URL(`../../skill/scripts/${language === 'node' ? 'smithue-exec.mjs' : 'smithue.ps1'}`, import.meta.url));
-  const run = () => spawnSync(language === 'node' ? process.execPath : 'powershell.exe',
-    language === 'node' ? [script, 'ping', '{}'] : ['-NoProfile', '-File', script, 'ping', '{}'],
+for (const language of ['node', 'node-xdg', 'powershell']) {
+  const isNode = language !== 'powershell';
+  const supported = isNode || process.platform === 'win32';
+  const script = fileURLToPath(new URL(`../../skill/scripts/${isNode ? 'smithue-exec.mjs' : 'smithue.ps1'}`, import.meta.url));
+  const nodeArgs = language === 'node-xdg'
+    ? ['--input-type=module', '-e', "import { pathToFileURL } from 'node:url'; Object.defineProperty(process, 'platform', { value: 'linux' }); await import(pathToFileURL(process.argv[1]).href);", script, 'ping', '{}']
+    : [script, 'ping', '{}'];
+  const run = () => spawnSync(isNode ? process.execPath : 'powershell.exe',
+    isNode ? nodeArgs : ['-NoProfile', '-File', script, 'ping', '{}'],
     { env, encoding: 'utf8' });
 
   it.skipIf(!supported)(`${language} fallback refuses an ambiguous editor target`, () => {

@@ -24,6 +24,7 @@ export class SmithUEError extends Error {
 // ---------------------------------------------------------------------------
 
 export interface PortfileData {
+  instance_id?: string;
   port: number;
   pid: number;
   project: string;
@@ -33,6 +34,7 @@ export interface PortfileData {
 }
 
 export interface DiscoverResult {
+  instance_id?: string;
   port: number;
   pid: number;
   project: string;
@@ -81,6 +83,10 @@ export async function readPortfiles(dir: string): Promise<Array<{ file: string; 
     try {
       const raw = await readFile(filePath, 'utf-8');
       const data = JSON.parse(raw) as PortfileData;
+        if (!data || !Number.isInteger(data.pid) || data.pid <= 0
+          || !Number.isInteger(data.port) || data.port < 1 || data.port > 65535
+          || typeof data.project !== 'string' || typeof data.project_name !== 'string'
+          || entry !== `${data.pid}.port`) continue;
       portfiles.push({ file: filePath, data });
     } catch {
       // Ignore malformed portfiles
@@ -120,7 +126,8 @@ async function checkLiveness(port: number, filePath: string, pid: number): Promi
     if (processAlive) {
       throw new SmithUEError(
         `SmithUE instance on port ${port} is unreachable, but process ${pid} is still running. Try again or restart the editor.\n` +
-        `  Fallback: curl -s http://127.0.0.1:${port}/api/v1/execute -d '{"command":"ping","params":{}}'`,
+        `  Probe failure: ${error.message}\n` +
+        `  Inspect with smithue-cli instances. Keep the current session binding; do not retry writes or switch editors.`,
         2,
       );
     }
@@ -188,7 +195,7 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
       `No SmithUE portfiles found. Is the SmithUE plugin running in Unreal Editor?\n` +
       `  Check: status bar SmithUE green dot in UE Editor.\n` +
       `  Port dir: ${dir}\n` +
-      `  Direct connect: set SMITHUE_PORT=<port> or use --port <port>.`,
+      `  Re-run smithue-cli instances after the editor starts, then explicitly confirm and bind the intended target.`,
       2,
     );
   }
@@ -249,6 +256,7 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
     }
     const bound = candidates.filter((candidate) => candidate.data.pid === pinned.pid
       && candidate.data.port === pinned.port
+      && candidate.data.instance_id === pinned.instance_id
       && projectId(candidate.data.project) === pinned.projectId);
     if (bound.length !== 1) {
       throw new SmithUEError('The session-bound editor is unavailable. Explicitly rebind with --pid or --project; no fallback is allowed.', 2);
@@ -273,6 +281,7 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
   if (session && selectionMode === 'explicit') {
     await registry.setPinned({
       projectId: projectId(data.project), pid: data.pid, port: data.port,
+      ...(data.instance_id ? { instance_id: data.instance_id } : {}),
       project: data.project, project_name: data.project_name,
       lastConnectedAt: new Date().toISOString(),
     });
@@ -293,6 +302,7 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
 
   return {
     port: data.port,
+    ...(data.instance_id ? { instance_id: data.instance_id } : {}),
     pid: data.pid,
     project: data.project,
     project_name: data.project_name,

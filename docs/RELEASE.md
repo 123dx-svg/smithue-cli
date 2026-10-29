@@ -17,7 +17,7 @@
 2. **CJK 文件（`skill/SKILL.md`、`docs/*.md`）用 Edit/Write 工具改，绝不用 PowerShell `Set-Content`**（PS 5.1 按 GBK 误读 UTF-8 → 乱码）。
 3. **提交信息用 `git commit -F <file>`**，提交信息文件用 Node/Write 写（PowerShell 多行 `-m` 和 CJK 会被吞 / 拆行）。
 4. **已发布版本不可覆盖**：npm 不允许同版本号重发。发错了只能 `npm version patch` 再发一版。
-5. **`files` 白名单决定打包内容**：`package.json` 的 `files` = `["dist/","schemas/","skill/","scripts/postinstall.cjs","package.json","README.md"]`。**新增需要进包的产物（如新 schema、新 skill 文件）必须同步加进 `files`，否则不会被发布。**
+5. **`files` 白名单决定打包内容**：`package.json` 的 `files` 包含 `dist/`、`schemas/`、`skill/`、`scripts/postinstall.cjs`、`scripts/maintenance-lock.cjs`、`package.json` 和 `README.md`。**新增需要进包的产物（如新 schema、新 skill 文件）必须同步加进 `files`，否则不会被发布。**
 6. **`*.tgz`（`npm pack` 产物）不要提交进仓库**（应在 `.gitignore`）。
 
 ## 2. 版本号（semver）
@@ -34,6 +34,13 @@ npm version patch --no-git-tag-version   # 或 minor / major
 ```
 
 ## 3. 发版前门禁（全绿才发）
+
+`Smoke Test` 在 Windows / Ubuntu 上执行构建、类型检查、完整测试和安装包冒烟；
+`Release (npm publish)` 也会先运行门禁，再比较官方 registry 版本。测试失败时不会发布，
+registry 查询失败也不会当成“未发布”继续执行。推送到 `main` 后可自动触发发布，
+同版本已发布则跳过；不要再与手动 `npm publish` 同时发布同一版本。
+跨平台测试夹具必须同时隔离 Windows 的 `LOCALAPPDATA` 和 Unix 的 `XDG_RUNTIME_DIR`，
+不能用 Windows 本机通过替代 Ubuntu 验证。
 
 ```bash
 npm run build       # tsc -p tsconfig.build.json → 退出码 0

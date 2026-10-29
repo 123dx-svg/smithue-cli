@@ -70,8 +70,8 @@ export async function factoryCommand(
       throw new Error('factory apply is not implemented in this release; use --dry-run');
     }
 
-    const { port } = await discoverPort(options);
-    const client = new SmithUEClient({ host: '127.0.0.1', port });
+    const { port, pid, instance_id } = await discoverPort(options);
+    const client = new SmithUEClient({ host: '127.0.0.1', port, expectedPid: pid, expectedInstanceId: instance_id });
     const { plan } = await runFactory({
       specId: options.specId,
       dryRun: true,

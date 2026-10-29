@@ -130,6 +130,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('discoverPort', () => {
+  it('does not reuse a session after an instance restart with the same PID and port', async () => {
+    setupSinglePortfile(Object.assign({}, pf1, { instance_id: 'new-instance' }));
+    process.env['SMITHUE_SESSION'] = 'session-a';
+    mockGetPinned.mockResolvedValue({ ...pf1, projectId: `id:${pf1.project}`, lastConnectedAt: '', instance_id: 'old-instance' });
+    await expect(discoverPort()).rejects.toThrow('no fallback');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('does not ignore a project constraint when PID is also supplied', async () => {
     setupTwoPortfiles();
     await expect(discoverPort({ pid: pf1.pid, project: pf2.project })).rejects.toMatchObject({ exitCode: 2 });

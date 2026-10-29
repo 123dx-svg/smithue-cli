@@ -62,6 +62,7 @@ else {
     if (-not $pinned) { throw 'Session has no editor binding. Explicitly bind a PID or project first.' }
     $entries = $entries | Where-Object {
       $_.pid -eq $pinned.pid -and $_.port -eq $pinned.port -and
+      $_.instance_id -eq $pinned.instance_id -and
       [IO.Path]::GetFullPath($_.project) -eq [IO.Path]::GetFullPath($pinned.project)
     }
   }
@@ -75,9 +76,19 @@ else {
 }
 
 $ready = Invoke-RestMethod -Uri "http://127.0.0.1:$port/ready" -TimeoutSec 10
+if (-not $ready.pid -or -not $ready.instance_id) {
+  throw 'Target lacks verifiable instance identity. Update its plugin.'
+}
 if (-not $ready.ready) { throw 'Target editor is not ready.' }
 if ($instance -and $null -ne $ready.pid -and $ready.pid -ne $instance.pid) {
   throw 'Target editor identity mismatch; refusing to execute.'
+}
+if ($instance -and $instance.instance_id -and $instance.instance_id -ne $ready.instance_id) {
+  throw 'Target editor instance changed; explicitly rebind.'
+}
+$guardHeaders = @{
+  'X-SmithUE-Expected-Pid' = [string]$ready.pid
+  'X-SmithUE-Expected-Instance' = [string]$ready.instance_id
 }
 
 # ---- 参数来源：文件路径（UTF-8）或 inline JSON ----
@@ -95,5 +106,5 @@ $full = '{"command":"' + $Command + '","params":' + $paramsJson + '}'
 $bytes = [System.Text.Encoding]::UTF8.GetBytes($full)
 
 $resp = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/v1/execute" `
-  -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes
+  -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes -Headers $guardHeaders
 $resp | ConvertTo-Json -Depth 30 -Compress

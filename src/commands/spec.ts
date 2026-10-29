@@ -39,8 +39,8 @@ export async function specInferCommand(
   options: { from: string; out: string; specId?: string; specName?: string } & DiscoverOpts,
 ): Promise<void> {
   try {
-    const { port } = await discoverPort(options);
-    const client = new SmithUEClient({ host: '127.0.0.1', port });
+    const { port, pid, instance_id } = await discoverPort(options);
+    const client = new SmithUEClient({ host: '127.0.0.1', port, expectedPid: pid, expectedInstanceId: instance_id });
     const spec = await runSpecInfer({
       from: options.from,
       out: options.out,

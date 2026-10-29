@@ -47,7 +47,7 @@ describe('execCommand', () => {
     await execCommand('MyCommand', { a: 1 }, {});
 
     expect(mockDiscoverPort).toHaveBeenCalledWith({});
-    expect(MockSmithUEClient).toHaveBeenCalledWith({ host: '127.0.0.1', port: 8080 });
+    expect(MockSmithUEClient).toHaveBeenCalledWith(expect.objectContaining({ host: '127.0.0.1', port: 8080, expectedPid: 123 }));
     expect(mockExecuteCommand).toHaveBeenCalledWith('MyCommand', { a: 1 });
     expect(mockPrintResult).toHaveBeenCalledWith(fakeResult);
     expect(mockPrintError).not.toHaveBeenCalled();

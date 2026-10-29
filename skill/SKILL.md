@@ -3,7 +3,7 @@ name: smithue-control
 description: 用 smithue-cli 从外部驱动正在运行的 UE 编辑器（需 SmithUE 插件）：读写资产与属性、蓝图排故与编译、批量操作、资产迁移与合规审计。只要用户提到查看或修改任意 Unreal 资产类型（蓝图、材质、静态网格、关卡、UMG、Niagara…），或粘贴了 /Game、/Script、.uasset、.umap 路径，就用本技能。一律查运行中的编辑器，不要去读磁盘目录。
 ---
 
-<!-- smithue-cli v0.13+ | SmithUE plugin v1.10+ -->
+<!-- Requires instances enumeration and guarded instance identity support in the CLI and target plugin. -->
 
 # SmithUE Control：用 smithue-cli 驱动/检查运行中的 UE 编辑器
 
@@ -14,12 +14,13 @@ description: 用 smithue-cli 从外部驱动正在运行的 UE 编辑器（需 S
 - SmithUE 是 UE5 编辑器插件，通过本地 HTTP 暴露编辑器能力；`smithue-cli` 是其 npm CLI。`npm i -g smithue-cli` 或 `npx smithue-cli`。
 - **前提（缺一不可）**：
   1. 目标工程已**安装并启用 SmithUE 插件**（只装 CLI 不够——插件才是暴露能力的一端）。未装 → 先提醒用户装，否则本 skill 全部无效。
-  2. **UE 编辑器正在运行**。每次操作前 `smithue-cli status` 确认 `ready:true`，没就绪就停。
+  2. **UE 编辑器正在运行**。每次操作前用当前会话的 `smithue-cli --session <id> status` 确认 `ready:true`，没就绪就停。首次绑定前先枚举实例。
 - 端口文件在 `%LOCALAPPDATA%\.smithue\<pid>.port`（Windows-only），任何工作目录都能发现编辑器。
 
 ## 发现与调用（4 步，权威自描述——别靠记忆）
 
 ```powershell
+npx smithue-cli instances --terse
 npx smithue-cli --session <unique-session-id> --project "<absolute-project.uproject>" status
 npx smithue-cli --session <same-session-id> search <关键词>
 npx smithue-cli --session <same-session-id> list
@@ -37,6 +38,16 @@ npx smithue-cli --session <same-session-id> exec <command> <params>
 
 **共享维护**：CLI 升级、skill 安装与插件自动升级共享用户级维护锁。锁冲突时稍后重试，不要删除活进程持有的锁。CLI 被强制终止可能留下锁文件，先核实文件记录的 PID 已退出，再清理；普通失败与正常退出自动释放。
 
+## 实例核验与目标丢失
+
+- 任务开始、每批写操作前、连接中断或超时后，运行 `smithue-cli instances --terse`。读取 `observed_at`、`online_count`、`ready_count` 及各实例的工程路径、PID、端口、`instance_id`、`state`；只有 `verified:true` 且 `state:ready` 的实例可作为编辑目标。
+- 枚举只发现启用 SmithUE 且有合法端口文件的实例，不代表系统里所有 UnrealEditor 进程。数量是当次核验的快照，不是常驻监控，也不能用缓存的数量推断目标仍然存在。
+- 多实例时根据用户明确的工程路径或 PID 选择；无法确定意图就询问用户。新增或关闭其他 Editor 不改变当前会话绑定，不能按“最新启动”“最近连接”或“只剩一个”切换目标。
+- CLI 在每次请求前再次核验目标，发送时携带预期 PID 和实例标识，由插件接收端拒绝错配。编辑器崩溃、退出、服务重启、端口复用或实例标识变化时立即停止后续编辑；即使重启后工程名、PID 或端口相同，也不能沿用旧实例身份。
+- 目标丢失后重新枚举，向用户确认目标，再以明确的 `--pid` 或绝对 `--project` 路径重新绑定原会话。`stale`、`unreachable`、`unverified`、`identity_mismatch` 和 `starting` 均不能当作可编辑的就绪实例。
+- 写请求超时或连接中断时，执行结果可能未知。不要自动重发，也不要换实例重试；仅在确认仍是同一实例后查询任务状态或读回结果。新实例中的同名资产不能证明旧请求成功或失败。
+- 旧插件缺少可核验的 PID / `instance_id` 时只报告不可核验，不执行编辑。先升级目标插件并重启，再重新枚举和绑定。
+
 ## 内容路径 vs 磁盘路径（最高频踩坑）
 
 **"文件夹/资产/内容" 默认指 UE 编辑器内部状态，不是 OS 磁盘目录。** 涉及 UE 内容一律走 smithue-cli 查**运行中的编辑器**，别用 `ls`/`Get-ChildItem` 读磁盘工程目录。
@@ -53,7 +64,7 @@ npx smithue-cli --session <same-session-id> exec <command> <params>
    ① `powershell -File scripts/smithue.ps1 <command> params.json`（PowerShell 自带 `Invoke-RestMethod`）
    ② `node scripts/smithue-exec.mjs <command> params.json`
 2. **别假设所有命令都用 `bp_path`**：`bp_get_compile_errors` 用 `blueprint_path`、`find_asset` 用 `name_pattern`、`get_actor_property` 用 `actor_label`……先 `list_tools` 查 schema。
-3. **"No portfiles found" 但编辑器在跑**：错误里已内置 `curl` 兜底命令，复制验证连通；查状态栏 SmithUE 绿点、端口目录、或 `SMITHUE_PORT=<port>` 直连。
+3. **"No portfiles found" 但编辑器在跑**：检查目标编辑器的 SmithUE 状态指示，再用 `instances` 重新发现。不要为绕过失效绑定而使用裸 HTTP、其他实例端口或改变全局端口环境变量；恢复后先确认目标身份，再明确重新绑定。
 4. **改完插件 C++ 命令后**必须重启编辑器（启动重编译加载新 DLL），否则连旧进程看不到新命令。
 5. **错误输出是机器可读 envelope**：`{"ok":false,"error":{message,code,exit,hint,fallback_cmd}}`——读 `error.code`/`fallback_cmd` 分支，别正则匹配文本。
 

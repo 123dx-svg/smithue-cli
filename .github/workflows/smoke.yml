@@ -18,6 +18,8 @@ jobs:
           node-version: '18'
       - run: npm ci
       - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
       - run: npm pack
       - name: Install from pack and verify version
         shell: bash
@@ -25,3 +27,4 @@ jobs:
           PKG=$(ls smithue-cli-*.tgz)
           npm install -g "$PKG"
           smithue-cli --version
+          smithue-cli instances --help

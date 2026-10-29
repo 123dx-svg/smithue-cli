@@ -67,6 +67,7 @@ function discover() {
     try { pinned = JSON.parse(fs.readFileSync(path.join(dir, 'sessions', `${key}.json`), 'utf8')).pinned; } catch {}
     if (!pinned) throw new Error('Session has no editor binding. Bind it with smithue-cli --session <id> --pid <pid> status first.');
     entries = entries.filter((entry) => entry.pid === pinned.pid && entry.port === pinned.port
+      && entry.instance_id === pinned.instance_id
       && path.resolve(entry.project).toLowerCase() === path.resolve(pinned.project).toLowerCase());
   }
   if (!entries.length) {
@@ -79,7 +80,7 @@ function discover() {
   return entries[0];
 }
 
-function post(port, command, params) {
+function post(port, command, params, identity) {
   return new Promise((resolve, reject) => {
     const body = Buffer.from(JSON.stringify({ command, params }), 'utf8'); // Content-Length 按字节算
     const req = http.request(
@@ -88,14 +89,22 @@ function post(port, command, params) {
         port,
         path: '/api/v1/execute',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length },
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length,
+          'X-SmithUE-Expected-Pid': String(identity.pid),
+          'X-SmithUE-Expected-Instance': identity.instance_id,
+        },
         timeout: 3_600_000, // 长命令不主动断；超时只是本地放弃等待，命令仍在编辑器里跑
       },
       (res) => {
         let d = '';
         res.setEncoding('utf8');
         res.on('data', (c) => (d += c));
-        res.on('end', () => resolve(d));
+        res.on('end', () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            reject(new Error(`Target rejected the request (HTTP ${res.statusCode}). Do not retry or switch editors. ${d}`));
+          } else resolve(d);
+        });
       }
     );
     req.on('error', reject);
@@ -133,11 +142,17 @@ async function main() {
     const inst = discover();
     const ready = await fetch(`http://127.0.0.1:${inst.port}/ready`, { signal: AbortSignal.timeout(10000) });
     const identity = await ready.json();
+    if (!Number.isInteger(identity.pid) || identity.pid <= 0 || !identity.instance_id) {
+      throw new Error('Target lacks verifiable instance identity. Update its plugin.');
+    }
     if (!identity.ready) throw new Error('Target editor is not ready.');
     if (inst.pid !== undefined && identity.pid !== undefined && inst.pid !== identity.pid) {
       throw new Error('Target editor identity mismatch; refusing to execute.');
     }
-    const out = await post(inst.port, command, params);
+    if (inst.instance_id && inst.instance_id !== identity.instance_id) {
+      throw new Error('Target editor instance changed; explicitly rebind.');
+    }
+    const out = await post(inst.port, command, params, identity);
     process.stdout.write(out);
   } catch (e) {
     console.error(String(e.message || e));

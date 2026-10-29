@@ -10,8 +10,8 @@ export interface SearchOpts {
 
 export async function searchCommand(keyword: string, opts: SearchOpts): Promise<void> {
   try {
-    const { port } = await discoverPort(opts);
-    const client = new SmithUEClient({ host: '127.0.0.1', port });
+    const { port, pid, instance_id } = await discoverPort(opts);
+    const client = new SmithUEClient({ host: '127.0.0.1', port, expectedPid: pid, expectedInstanceId: instance_id });
 
     const tools = await client.listTools();
     const kw = keyword.toLowerCase();

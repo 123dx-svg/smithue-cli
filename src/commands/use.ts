@@ -53,6 +53,7 @@ export async function useCommand(opts: UseOpts): Promise<void> {
     }
 
     const entry = {
+      ...(candidate.data.instance_id ? { instance_id: candidate.data.instance_id } : {}),
       projectId: projectId(candidate.data.project || ''),
       pid: candidate.data.pid,
       port: candidate.data.port,

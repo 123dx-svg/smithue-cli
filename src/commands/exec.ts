@@ -10,8 +10,8 @@ export async function execCommand(
   opts: ExecOpts = {},
 ): Promise<void> {
   try {
-    const { port } = await discoverPort(opts);
-    const client = new SmithUEClient({ host: '127.0.0.1', port });
+    const { port, pid, instance_id } = await discoverPort(opts);
+    const client = new SmithUEClient({ host: '127.0.0.1', port, expectedPid: pid, expectedInstanceId: instance_id });
     const result = await client.executeCommand(command, params);
     printResult(result);
   } catch (err) {

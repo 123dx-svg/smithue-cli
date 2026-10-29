@@ -44,6 +44,7 @@ npx smithue-cli <command>
 | `list` | List available domains or objects |
 | `search` | Find assets or objects by string |
 | `status` | Show running UE instances and their ports |
+| `instances` | Probe every discovered editor and report verified online/ready counts without changing bindings |
 | `batch` | Run multiple read-only commands sequentially |
 | `upgrade` | Update the CLI to the latest version via npm |
 | `prune` | Remove stale port files from crashed instances |
@@ -74,6 +75,28 @@ Supported commands: `status`, `list`, `search`. Sequential execution only.
 ## Upgrading
 
 ### Multiple Editors and AI Sessions
+
+Start tasks, pre-write checks, and recovery from disconnects with:
+
+```powershell
+smithue-cli instances --terse
+smithue-cli instances --timeout 2000
+```
+
+The result contains `observed_at`, `discovered_count`, `online_count`,
+`ready_count`, and per-instance identity/state. Only verified `ready` instances
+are editable. States also include `starting`, `stale`, `unreachable`,
+`unverified`, and `identity_mismatch`. Counts are point-in-time snapshots of
+discoverable SmithUE instances, not all OS editor processes. Enumeration never
+deletes records or changes bindings; ambiguous intent requires user confirmation.
+
+Each guarded request rechecks readiness, PID, and the server's `instance_id`.
+The plugin validates expected identity headers before dispatch, so port reuse
+between the check and the command cannot redirect an edit to another instance.
+Server restarts generate new instance IDs; explicitly rebind after confirming
+the replacement target. Older plugins without this identity support are visible
+as unverified but cannot receive guarded commands. Timed-out writes are not
+automatically submitted again: confirm the result on the same instance first.
 
 Use a unique, stable session ID for each AI conversation. Bind its first call to
 an absolute project path or an editor PID, then keep the same session ID on every call:
@@ -108,15 +131,23 @@ Direct `npm install/update` bypasses the outer upgrade lock; use the managed
 upgrade command when editors are active. Its postinstall protects skill copying,
 not npm's own earlier package writes.
 
-For a read-only two-editor verification (requires a built CLI and UE5.2):
+For a read-only two-editor verification (requires a built CLI and the matching engine):
 
 ```powershell
 node scripts/verify-multi-instance.mjs "<EngineRoot>/Engine/Binaries/Win64/UnrealEditor.exe" "<ProjectRoot>/<Project>.uproject" "<ProjectRoot>/Plugins/SmithUE"
 ```
 
+The temporary project inherits the primary project's engine association.
+For mixed engine versions, append a peer editor executable and its existing
+project file as the fourth and fifth arguments. Each project must have its
+own compatible SmithUE plugin build. The verifier preserves UE5.8's
+`modal_active` readiness field and waits within fixed deadlines for startup
+probes; it never retries edits or ignores identity mismatches.
+
 The verifier creates a temporary second project, requests the same fixed port
-for both instances, checks session isolation and fail-closed routing, and stops
-only the editors it launched.
+for both instances, checks online counts and receiver-side identity rejection,
+terminates and restarts one editor to verify explicit rebinding, and stops
+only the editors it launched. It never writes assets.
 
 ```bash
 smithue-cli upgrade

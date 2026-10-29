@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -35,11 +39,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view smithue-cli version 2>/dev/null || echo "none")
+          REMOTE=$(npm view smithue-cli version --registry https://registry.npmjs.org)
           echo "local=$LOCAL  registry=$REMOTE"
           if [ "$LOCAL" = "$REMOTE" ]; then
             echo "v$LOCAL already published — nothing to do."
             exit 0
           fi
           echo "Publishing v$LOCAL ..."
-          npm publish --access public
+          npm publish --access public --registry https://registry.npmjs.org

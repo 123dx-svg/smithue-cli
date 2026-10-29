@@ -7,6 +7,7 @@ import { resolveExecParams } from './commands/exec-params.js';
 import { listCommand } from './commands/list.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
+import { instancesCommand } from './commands/instances.js';
 import { useCommand } from './commands/use.js';
 import { purge } from './commands/purge.js';
 import { prune } from './commands/prune.js';
@@ -120,6 +121,14 @@ program
 // ---------------------------------------------------------------------------
 // use
 // ---------------------------------------------------------------------------
+program
+  .command('instances')
+  .description('List and verify every discovered SmithUE editor without changing session bindings')
+  .option('--timeout <ms>', 'per-instance readiness probe timeout in milliseconds (1-30000)', Number)
+  .action(async (cmdOpts: { timeout?: number }) => {
+    await instancesCommand(cmdOpts);
+  });
+
 program
   .command('use')
   .description('Pin a default SmithUE instance. Use --clear to unpin.')

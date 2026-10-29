@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## v0.16.0 — 2026-10-29
+
+- Fix Ubuntu release-gate failures: fallback-script tests now isolate both `LOCALAPPDATA` and `XDG_RUNTIME_DIR`, with an explicit XDG discovery regression check. Smoke CI runs the full tests and typecheck on Windows and Ubuntu instead of only checking the packed CLI version.
+- Keep package and lockfile versions in sync. Serialize npm publishes and fail closed on registry lookup errors; query and publish explicitly against the official npm registry.
+
+**Compatibility:** `use` requires an isolated session ID. Guarded commands require an updated target plugin exposing PID / `instance_id`; update each UE project's plugin before using this CLI for editing. A lost or restarted target must be explicitly confirmed and rebound.
+
+- Add `instances` to probe all discovered editors and report verified online/ready counts and per-instance lifecycle states without changing session bindings.
+- Bind sessions to startup instance IDs as well as PID/port/project, revalidate every request, and send expected identity headers for plugin-side rejection of stale requests. Reject legacy endpoints without verifiable instance IDs; do not resubmit timed-out guarded writes.
+- Update skill instructions and fallback scripts for task-start/pre-write/recovery enumeration and explicit user-confirmed rebinding after crashes, exits, or restarts. Extend the real two-editor verifier with online counts, receiver-side rejection, and crash/restart recovery.
 
 - Add `--session` / `SMITHUE_SESSION` with separate editor bindings. Ambiguous targets and unavailable bound editors fail closed; global recent history no longer selects a write target. `use` now requires a session.
 - Respect explicit project selection over environment port defaults, validate compound PID/project constraints, and check PID identity from updated plugins' readiness responses.

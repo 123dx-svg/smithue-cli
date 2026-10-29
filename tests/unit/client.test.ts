@@ -23,6 +23,91 @@ describe('SmithUEClient', () => {
     vi.restoreAllMocks();
   });
 
+  describe('target identity preflight', () => {
+    it('rejects a restarted instance even when PID and port are unchanged', async () => {
+      const spy = mockFetch({ ready: true, pid: 1001, instance_id: 'new-instance' });
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001, expectedInstanceId: 'old-instance' });
+      await expect(client.executeCommand('delete_asset')).rejects.toThrow('instance identity mismatch');
+      expect(spy).toHaveBeenCalledOnce();
+    });
+
+    it('includes receiver-side PID and instance guards on the actual command', async () => {
+      const spy = vi.spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response(JSON.stringify({ ready: true, pid: 1001, instance_id: 'instance-a' })))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'success', data: {} })));
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await client.executeCommand('ping');
+      expect(spy.mock.calls[1]?.[1]?.headers).toMatchObject({
+        'X-SmithUE-Expected-Pid': '1001', 'X-SmithUE-Expected-Instance': 'instance-a',
+      });
+    });
+
+    it('does not retry after the receiving editor rejects a stale identity', async () => {
+      const spy = vi.spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response(JSON.stringify({ ready: true, pid: 1001, instance_id: 'instance-a' })))
+        .mockResolvedValueOnce(new Response('{}', { status: 409 }));
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeCommand('delete_asset')).rejects.toMatchObject({ exitCode: 2 });
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it('never resubmits a timed-out protected write as an async task', async () => {
+      const spy = vi.spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response(JSON.stringify({ ready: true, pid: 1001, instance_id: 'instance-a' })))
+        .mockRejectedValueOnce(new DOMException('aborted', 'AbortError'));
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeWithFailover('delete_asset')).rejects.toThrow('Do NOT re-send');
+      expect(spy.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    });
+
+    it('refuses PID-only plugins that cannot reject stale requests', async () => {
+      const spy = mockFetch({ ready: true, pid: 1001 });
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeCommand('delete_asset')).rejects.toThrow('does not provide an instance identifier');
+      expect(spy).toHaveBeenCalledOnce();
+    });
+
+    it('sends no edit to a different process after port reuse', async () => {
+      const spy = mockFetch({ ready: true, pid: 1002 });
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeCommand('delete_asset')).rejects.toMatchObject({ exitCode: 2 });
+      expect(spy).toHaveBeenCalledOnce();
+      expect(spy.mock.calls[0]?.[0]).toContain('/ready');
+    });
+
+    it('sends no edit when the target has exited or crashed', async () => {
+      const spy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('fetch failed'));
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeCommand('delete_asset')).rejects.toThrow('unreachable');
+      expect(spy).toHaveBeenCalledOnce();
+    });
+
+    it('refuses a legacy endpoint without verifiable identity', async () => {
+      const spy = mockFetch({ ready: true });
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeCommand('delete_asset')).rejects.toThrow('does not provide PID identity');
+      expect(spy).toHaveBeenCalledOnce();
+    });
+
+    it('does not send an edit while the target is starting', async () => {
+      const spy = mockFetch({ ready: false, pid: 1001, instance_id: 'instance-a' }, 503);
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await expect(client.executeCommand('delete_asset')).rejects.toThrow('not ready');
+      expect(spy).toHaveBeenCalledOnce();
+    });
+
+    it('checks identity again before every command', async () => {
+      const spy = vi.spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response(JSON.stringify({ ready: true, pid: 1001, instance_id: 'instance-a' })))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'success', data: {} })))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ ready: true, pid: 1002 })));
+      const client = new SmithUEClient({ host: HOST, port: PORT, expectedPid: 1001 });
+      await client.executeCommand('ping');
+      await expect(client.executeCommand('delete_asset')).rejects.toThrow('identity mismatch');
+      expect(spy.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    });
+  });
+
   describe('constructor', () => {
     it('accepts {host, port, timeout} config object', () => {
       const client = makeClient();

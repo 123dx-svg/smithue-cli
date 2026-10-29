@@ -50,7 +50,7 @@ describe('listCommand', () => {
     await listCommand(undefined, {});
 
     expect(mockDiscoverPort).toHaveBeenCalledWith({});
-    expect(mockSmithUEClient).toHaveBeenCalledWith({ host: '127.0.0.1', port: 13721 });
+    expect(mockSmithUEClient).toHaveBeenCalledWith(expect.objectContaining({ host: '127.0.0.1', port: 13721, expectedPid: 1001 }));
     expect(mockListTools).toHaveBeenCalledWith(undefined);
     expect(mockPrintResult).toHaveBeenCalledWith(tools);
     expect(mockPrintError).not.toHaveBeenCalled();

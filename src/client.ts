@@ -5,17 +5,23 @@ export interface SmithUEClientConfig {
   host: string;
   port: number;
   timeout?: number;
+  expectedPid?: number;
+  expectedInstanceId?: string;
 }
 
 export class SmithUEClient {
   private host: string;
   private port: number;
   private timeout: number;
+  private expectedPid: number | undefined;
+  private expectedInstanceId: string | undefined;
 
   constructor(config: SmithUEClientConfig) {
     this.host = config.host;
     this.port = config.port;
     this.timeout = config.timeout ?? 30000;
+    this.expectedPid = config.expectedPid;
+    this.expectedInstanceId = config.expectedInstanceId;
   }
 
   private get baseUrl(): string {
@@ -26,10 +32,20 @@ export class SmithUEClient {
     // Include charset so the plugin (UE C++ side) never falls back to a system
     // ANSI/GBK code page when parsing the request body — otherwise CJK params
     // (e.g. a Chinese button_text / asset path) can be corrupted server-side.
-    return { 'Content-Type': 'application/json; charset=utf-8' };
+    return {
+      'Content-Type': 'application/json; charset=utf-8',
+      ...(this.expectedPid ? { 'X-SmithUE-Expected-Pid': String(this.expectedPid) } : {}),
+      ...(this.expectedInstanceId ? { 'X-SmithUE-Expected-Instance': this.expectedInstanceId } : {}),
+    };
   }
 
   private async fetchJson<T>(path: string, init: RequestInit, timeoutMs?: number): Promise<T> {
+    if (path !== '/ready' && this.expectedPid !== undefined) {
+      const identity = await this.getReady();
+      if (!identity.ready) {
+        throw new SmithUEError('Target editor is not ready. No command was sent; do not switch targets.', 2);
+      }
+    }
     const ms = timeoutMs ?? this.timeout;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ms);
@@ -37,10 +53,14 @@ export class SmithUEClient {
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
         ...init,
+        headers: { ...this.headers(), ...init.headers },
         signal: controller.signal,
       });
 
-      if (!response.ok) {
+      if (response.status === 409) {
+        throw new SmithUEError('Target editor rejected the instance identity. Do not retry or switch targets; explicitly rebind.', 2);
+      }
+      if (!response.ok && !(path === '/ready' && response.status === 503)) {
         const body = await response.text().catch(() => '');
         throw new Error(
           `SmithUE plugin returned HTTP ${response.status}. Body: ${body.slice(0, 200)}`
@@ -95,7 +115,8 @@ export class SmithUEClient {
     ) {
       return new Error(
         `SmithUE plugin unreachable at ${this.host}:${this.port}. Start UE Editor with SmithUE plugin enabled.\n` +
-        `  Fallback: curl -s http://${this.host}:${this.port}/api/v1/execute -d '{"command":"ping","params":{}}'`
+        `  Inspect with smithue-cli instances. Keep the current session binding.\n` +
+        `  A command sent before disconnect may have executed; confirm its outcome before retrying.`
       );
     }
 
@@ -130,8 +151,28 @@ export class SmithUEClient {
     return data.tools ?? [];
   }
 
-  async getReady(): Promise<{ ready: boolean; version?: string; pie_active?: boolean }> {
-    return this.getJson<{ ready: boolean; version?: string; pie_active?: boolean }>('/ready');
+  async getReady(): Promise<{ ready: boolean; pid?: number; instance_id?: string; version?: string; pie_active?: boolean }> {
+    const identity = await this.getJson<{ ready: boolean; pid?: number; instance_id?: string; version?: string; pie_active?: boolean }>('/ready', 10000);
+    if (!identity || typeof identity.ready !== 'boolean') {
+      throw new SmithUEError('Target editor returned invalid readiness identity. No command was sent.', 2);
+    }
+    if (this.expectedPid !== undefined) {
+      if (!Number.isInteger(identity.pid) || (identity.pid ?? 0) <= 0) {
+        throw new SmithUEError('Target editor does not provide PID identity. Update its SmithUE plugin before executing commands.', 2);
+      }
+      if (this.expectedPid !== 0 && identity.pid !== this.expectedPid) {
+        throw new SmithUEError(`Editor identity mismatch: expected PID ${this.expectedPid}, received ${identity.pid}. No command was sent.`, 2);
+      }
+      if (typeof identity.instance_id !== 'string' || !identity.instance_id) {
+        throw new SmithUEError('Target editor does not provide an instance identifier. Update its SmithUE plugin before executing commands.', 2);
+      }
+      if (this.expectedInstanceId !== undefined && identity.instance_id !== this.expectedInstanceId) {
+        throw new SmithUEError('Editor instance identity mismatch. The editor may have restarted; explicitly rebind. No command was sent.', 2);
+      }
+      if (this.expectedPid === 0) this.expectedPid = identity.pid;
+      this.expectedInstanceId = identity.instance_id;
+    }
+    return identity;
   }
 
   async isConnected(): Promise<boolean> {
@@ -158,6 +199,9 @@ export class SmithUEClient {
         });
     } catch (err) {
       if (err instanceof SmithUEError) throw err;
+      if (this.expectedPid !== undefined && (err as Error).name === 'AbortError') {
+        throw this.normalizeRequestError(err, command);
+      }
       if ((err as Error).name !== 'AbortError') {
         throw this.normalizeRequestError(err, command);
       }

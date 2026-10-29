@@ -14,6 +14,12 @@ const pkgPath = join(__dirname, '../../package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
 describe('T26 dry-run CLI fixture tests', () => {
+  it('keeps package.json and both lockfile version fields in sync', () => {
+    const lock = JSON.parse(readFileSync(join(__dirname, '../../package-lock.json'), 'utf-8'));
+    expect(lock.version).toBe(pkg.version);
+    expect(lock.packages[''].version).toBe(pkg.version);
+  });
+
   it('Test 1: --version matches package.json version (exit 0)', () => {
     const result = spawnSync('node', [cliPath, '--version'], { encoding: 'utf-8' });
     expect(result.status).toBe(0);

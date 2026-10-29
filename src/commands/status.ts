@@ -16,7 +16,7 @@ async function sleep(ms: number): Promise<void> {
 export async function statusCommand(opts: StatusOpts): Promise<void> {
   try {
     const discovered = await discoverPort(opts);
-    const client = new SmithUEClient({ host: '127.0.0.1', port: discovered.port });
+    const client = new SmithUEClient({ host: '127.0.0.1', port: discovered.port, expectedPid: discovered.pid, expectedInstanceId: discovered.instance_id });
 
     if (opts.wait !== undefined && opts.wait > 0) {
       const timeoutMs = opts.wait * 1000;
