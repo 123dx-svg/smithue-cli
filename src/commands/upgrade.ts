@@ -1,9 +1,12 @@
 import { execSync } from 'node:child_process';
 import { SmithUEError } from '../portfile.js';
 import { printResult, printError } from '../output.js';
+import { acquireMaintenanceLock } from '../maintenance.js';
 
 export async function upgradeCommand(): Promise<void> {
+  let release: (() => void) | undefined;
   try {
+    release = acquireMaintenanceLock();
     const output = execSync('npm update -g smithue-cli', { stdio: 'pipe', encoding: 'utf-8' });
     printResult({ status: 'updated', output: String(output).trim() });
   } catch (err: unknown) {
@@ -18,5 +21,7 @@ export async function upgradeCommand(): Promise<void> {
     }
 
     printError(new SmithUEError(String(err), 1));
+  } finally {
+    release?.();
   }
 }

@@ -20,18 +20,22 @@ description: 用 smithue-cli 从外部驱动正在运行的 UE 编辑器（需 S
 ## 发现与调用（4 步，权威自描述——别靠记忆）
 
 ```powershell
-npx smithue-cli status                                  # 1. 发现编辑器：port/pid/project/ready
-npx smithue-cli search <关键词>                          # 2. 按意图定位工具（搜 name+description，跨所有域）
-npx smithue-cli list                                    # 2b. 或列功能域（23 域 / 200+ 工具）
-npx smithue-cli exec list_tools '{"domain":"Blueprint"}' # 3. 拿目标域全部命令 + 参数 schema（权威）
-npx smithue-cli exec <command> <params>                 # 4. 调用
+npx smithue-cli --session <unique-session-id> --project "<absolute-project.uproject>" status
+npx smithue-cli --session <same-session-id> search <关键词>
+npx smithue-cli --session <same-session-id> list
+npx smithue-cli --session <same-session-id> exec list_tools '{"domain":"Blueprint"}'
+npx smithue-cli --session <same-session-id> exec <command> <params>
 ```
 
 不知用哪个 → 先 `search`；知道域 → `list_tools` 看全量。**参数永远以第 3 步 schema 为准**（`search` 是字面子串匹配，搜不到换同义词或 `list_tools`）。
 
 全局选项：`--terse`(压缩 JSON 省 token，AI 默认带上) · `--out <file>`(大输出落盘) · `--pid`/`--project`(多实例选择) · `--strict`(CI，多实例硬报错)。
 
-**多实例**：多个编辑器运行时默认选最近连接的（stderr 打印选中提示）。钉住：`smithue-cli use --pid <n>` / `--project <name>` / `--clear`。
+**会话绑定**：为每个 AI 会话生成独立且稳定的 session ID，每次调用都携带相同的 `--session`，或在该会话专用的进程环境中设置 `SMITHUE_SESSION`。首次调用必须带 `--project` 的绝对工程路径或 `--pid`；确认返回的工程及 `ready:true` 后再编辑。多个会话不能共用 session ID，也不要依赖全局端口环境变量或最近连接记录。多实例目标不明确时 CLI 会报错；绑定实例退出后不会自动换到另一个工程，必须明确重新绑定。
+
+显式切换或解除当前会话绑定：`smithue-cli --session <id> use --pid <n>` / `--project <path>` / `--clear`。同一工程有多个编辑器时用 PID。备用脚本使用相同的 `SMITHUE_SESSION`，或每次明确指定 `SMITHUE_PID` / `SMITHUE_PROJECT`；禁止为解决连接问题而改用另一个实例。
+
+**共享维护**：CLI 升级、skill 安装与插件自动升级共享用户级维护锁。锁冲突时稍后重试，不要删除活进程持有的锁。CLI 被强制终止可能留下锁文件，先核实文件记录的 PID 已退出，再清理；普通失败与正常退出自动释放。
 
 ## 内容路径 vs 磁盘路径（最高频踩坑）
 

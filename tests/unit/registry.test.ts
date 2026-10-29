@@ -41,6 +41,28 @@ it('readRegistry() returns empty registry when file missing', async () => {
   await expect(readRegistry()).resolves.toEqual({ entries: [] });
 });
 
+it('isolates two session bindings and ignores the legacy global binding', async () => {
+  const originalSession = process.env.SMITHUE_SESSION;
+  try {
+    delete process.env.SMITHUE_SESSION;
+    await setPinned(entry('global', 1));
+    process.env.SMITHUE_SESSION = 'session-a';
+    await expect(getPinned()).resolves.toBeUndefined();
+    await setPinned(entry('project-a', 2));
+    process.env.SMITHUE_SESSION = 'session-b';
+    await expect(getPinned()).resolves.toBeUndefined();
+    await setPinned(entry('project-b', 3));
+    process.env.SMITHUE_SESSION = 'session-a';
+    await expect(getPinned()).resolves.toEqual(entry('project-a', 2));
+    await clearPinned();
+    process.env.SMITHUE_SESSION = 'session-b';
+    await expect(getPinned()).resolves.toEqual(entry('project-b', 3));
+  } finally {
+    if (originalSession === undefined) delete process.env.SMITHUE_SESSION;
+    else process.env.SMITHUE_SESSION = originalSession;
+  }
+});
+
 it('updateLastUsed() prepends and deduplicates by projectId', async () => {
   mkdirSync(join(rootDir, '.smithue'), { recursive: true });
 

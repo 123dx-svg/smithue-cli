@@ -90,6 +90,13 @@ function setupYesPrompt() {
   mockQuestion.mockImplementation((_msg: string, cb: (ans: string) => void) => cb('y'));
 }
 
+it('does not remove a maintenance lock even with --force', async () => {
+  mockReaddir.mockResolvedValue(['maintenance.lock'] as unknown as Awaited<ReturnType<typeof fsp.readdir>>);
+  await expect(purge({ force: true, yes: true, dryRun: false })).rejects.toThrow('printError called');
+  expect(mockPrintError).toHaveBeenCalledWith(expect.objectContaining({ exitCode: 3 }));
+  expect(mockUnlink).not.toHaveBeenCalled();
+});
+
 // ---------------------------------------------------------------------------
 // Env helpers
 // ---------------------------------------------------------------------------

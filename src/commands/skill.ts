@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { printError, printResult } from '../output.js';
 import { SmithUEError } from '../portfile.js';
+import { acquireMaintenanceLock } from '../maintenance.js';
 
 /** Directory holding the bundled skill (SKILL.md + references/ + scripts/). */
 function getSkillDir(): string {
@@ -16,6 +17,7 @@ export interface SkillOpts {
 }
 
 export async function skillCommand(opts: SkillOpts): Promise<void> {
+  let release: (() => void) | undefined;
   try {
     if (!opts.print && !opts.install) {
       throw new SmithUEError(
@@ -24,6 +26,7 @@ export async function skillCommand(opts: SkillOpts): Promise<void> {
       );
     }
 
+    if (opts.install && !opts.print) release = acquireMaintenanceLock();
     const skillDir = getSkillDir();
     const skillMd = join(skillDir, 'SKILL.md');
 
@@ -74,5 +77,7 @@ export async function skillCommand(opts: SkillOpts): Promise<void> {
     }
   } catch (err) {
     printError(err);
+  } finally {
+    release?.();
   }
 }

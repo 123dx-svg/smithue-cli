@@ -40,6 +40,10 @@ export async function purge(opts: PurgeOptions): Promise<void> {
   }
 
   const entries = await readdir(dir);
+  if (entries.includes('maintenance.lock') && !opts.dryRun) {
+    printError(new SmithUEError('Refusing to purge a maintenance lock. Wait for its owner; verify an abandoned owner PID before manual cleanup.', 3));
+    return;
+  }
   const portEntries = entries.filter((e) => e.endsWith('.port'));
   const unknownEntries = entries.filter((e) => !e.endsWith('.port'));
   const scanned = portEntries.length;

@@ -94,12 +94,19 @@ async function checkLiveness(port: number, filePath: string, pid: number): Promi
   const timeoutMs = parseInt(process.env['SMITHUE_PROBE_TIMEOUT'] ?? '10000', 10);
 
   try {
-    await fetch(`http://127.0.0.1:${port}/ready`, {
+    const response = await fetch(`http://127.0.0.1:${port}/ready`, {
       signal: AbortSignal.timeout(timeoutMs),
     });
+    if (typeof response.json === 'function') {
+      const identity = await response.json() as { pid?: number };
+      if (identity.pid !== undefined && identity.pid !== pid) {
+        throw new SmithUEError(`Editor identity mismatch on port ${port}: expected PID ${pid}, received ${identity.pid}.`, 2);
+      }
+    }
     // any HTTP response = server is alive (including 503 during startup)
     return { busy: false };
   } catch (err) {
+    if (err instanceof SmithUEError) throw err;
     const error = err as Error;
 
     // Timeout means the editor may be busy running a long command.
@@ -136,11 +143,15 @@ async function checkLiveness(port: number, filePath: string, pid: number): Promi
 // ---------------------------------------------------------------------------
 
 export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverResult> {
+  const session = process.env['SMITHUE_SESSION'];
+  if (opts.port !== undefined && (opts.pid !== undefined || opts.project !== undefined || session)) {
+    throw new SmithUEError('--port cannot be combined with a PID, project, or session binding.', 1);
+  }
   // 1. SMITHUE_PORT env override — skip discovery entirely
   const envPort = process.env['SMITHUE_PORT'];
-  if (envPort) {
+  if (envPort && opts.port === undefined && opts.pid === undefined && opts.project === undefined && !session) {
     const port = parseInt(envPort, 10);
-    if (isNaN(port) || port <= 0) {
+    if (!/^\d+$/.test(envPort) || port <= 0 || port > 65535) {
       throw new SmithUEError(`SMITHUE_PORT is not a valid port number: "${envPort}"`, 1);
     }
     return { port, pid: 0, project: '', project_name: '', selection_mode: 'explicit', busy: false };
@@ -148,6 +159,9 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
 
   // 2. --port flag shortcut (already resolved by caller, treated same as env override)
   if (opts.port !== undefined) {
+    if (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535) {
+      throw new SmithUEError('--port must be an integer between 1 and 65535.', 1);
+    }
     return { port: opts.port, pid: 0, project: '', project_name: '', selection_mode: 'explicit', busy: false };
   }
 
@@ -155,7 +169,7 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
 
   // 3. Determine effective PID filter (--pid > SMITHUE_PID env)
   let pidFilter: number | undefined = opts.pid;
-  if (pidFilter === undefined) {
+  if (pidFilter === undefined && opts.project === undefined && !session) {
     const envPid = process.env['SMITHUE_PID'];
     if (envPid) {
       const p = parseInt(envPid, 10);
@@ -190,14 +204,15 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
         2,
       );
     }
-  } else if (opts.project !== undefined) {
+  }
+  if (opts.project !== undefined) {
     const query = opts.project;
 
     // 1. Try exact absolute path comparison (backward-compatible, M7)
-    let matched = candidates.filter((c) => c.data.project === query);
+    let matched = candidates.filter((c) => projectId(c.data.project) === projectId(query));
 
     // 2. Fuzzy fallback: match by project_name or basename of project path
-    if (matched.length === 0) {
+    if (matched.length === 0 && !/[\\/]/.test(query)) {
       const q = query.toLowerCase();
       matched = candidates.filter((c) => {
         const name = c.data.project_name?.toLowerCase() ?? '';
@@ -227,60 +242,41 @@ export async function discoverPort(opts: DiscoverOpts = {}): Promise<DiscoverRes
     candidates = matched;
   }
 
-  // 6. Multi-instance: select most-recent or hard-error in strict mode
+  if (session && pidFilter === undefined && opts.project === undefined) {
+    const pinned = await registry.getPinned();
+    if (!pinned) {
+      throw new SmithUEError('Session has no editor binding. Select --pid or --project first.', 1);
+    }
+    const bound = candidates.filter((candidate) => candidate.data.pid === pinned.pid
+      && candidate.data.port === pinned.port
+      && projectId(candidate.data.project) === pinned.projectId);
+    if (bound.length !== 1) {
+      throw new SmithUEError('The session-bound editor is unavailable. Explicitly rebind with --pid or --project; no fallback is allowed.', 2);
+    }
+    candidates = bound;
+    selectionMode = 'pinned';
+  }
+
   if (candidates.length > 1) {
-    if (opts.strict) {
-      const list = candidates
-        .map((c) => `  PID ${c.data.pid}  ${c.data.project_name}  (port ${c.data.port})`)
-        .join('\n');
-      throw new SmithUEError(
-        `Multiple SmithUE instances are running. Use --pid or --project to select one:\n${list}`,
-        1,
-      );
-    }
-
-    const pinned = registry.getPinned ? await registry.getPinned() : undefined;
-    if (pinned) {
-      const pinnedCandidate = candidates.find(
-        (c) => c.data.pid === pinned.pid && c.data.port === pinned.port,
-      );
-      if (pinnedCandidate) {
-        process.stderr.write(
-          `[smithue] selected PID ${pinned.pid} ${pinned.project_name} (pinned)\n`,
-        );
-        selectionMode = 'pinned';
-        candidates = [pinnedCandidate];
-      }
-    }
-
-    const recent = await registry.getMostRecent();
-    if (recent) {
-      const recentCandidate = candidates.find(
-        (c) => c.data.pid === recent.pid && c.data.port === recent.port,
-      );
-      if (recentCandidate) {
-        process.stderr.write(
-          `[smithue] selected PID ${recent.pid} ${recent.project_name} (most recent)\n`,
-        );
-        selectionMode = 'most-recent';
-        candidates = [recentCandidate];
-      }
-    }
-
-    if (candidates.length > 1) {
-      const list = candidates
-        .map((c) => `  PID ${c.data.pid}  ${c.data.project_name}  (port ${c.data.port})`)
-        .join('\n');
-      throw new SmithUEError(
-        `Multiple SmithUE instances are running. Use --pid or --project to select one:\n${list}`,
-        1,
-      );
-    }
+    const list = candidates
+      .map((candidate) => `  PID ${candidate.data.pid}  ${candidate.data.project_name}  (port ${candidate.data.port})`)
+      .join('\n');
+    throw new SmithUEError(
+      `Multiple SmithUE instances are running. Use --pid or --project to select one:\n${list}`, 1,
+    );
   }
 
   // 7. Single candidate — liveness check
   const { file, data } = candidates[0]!;
   const liveness = await checkLiveness(data.port, file, data.pid);
+
+  if (session && selectionMode === 'explicit') {
+    await registry.setPinned({
+      projectId: projectId(data.project), pid: data.pid, port: data.port,
+      project: data.project, project_name: data.project_name,
+      lastConnectedAt: new Date().toISOString(),
+    });
+  }
 
   try {
     await registry.updateLastUsed({

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../src/portfile.js', () => ({
   readPortfiles: vi.fn(),
@@ -44,14 +44,28 @@ const mockPrintResult = vi.mocked(printResult);
 const mockPrintError = vi.mocked(printError);
 
 describe('useCommand', () => {
+  const originalSession = process.env.SMITHUE_SESSION;
   const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => code as never) as any);
 
   beforeEach(() => {
+    process.env.SMITHUE_SESSION = 'unit-test-session';
     vi.clearAllMocks();
     mockGetPortfileDir.mockReturnValue('C:/Users/test/.smithue');
     mockReadPortfiles.mockResolvedValue([]);
     mockGetPinned.mockResolvedValue(undefined);
     exitSpy.mockClear();
+  });
+
+  afterEach(() => {
+    if (originalSession === undefined) delete process.env.SMITHUE_SESSION;
+    else process.env.SMITHUE_SESSION = originalSession;
+  });
+
+  it('refuses to mutate a shared global binding', async () => {
+    delete process.env.SMITHUE_SESSION;
+    await useCommand({ pid: 1234 });
+    expect(mockPrintError).toHaveBeenCalledWith(expect.objectContaining({ exitCode: 1 }));
+    expect(mockSetPinned).not.toHaveBeenCalled();
   });
 
   it('use --clear → calls clearPinned and prints cleared result', async () => {

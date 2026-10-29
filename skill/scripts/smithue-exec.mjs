@@ -18,12 +18,15 @@
 //
 // 环境变量：
 //   SMITHUE_PORT=<n>       跳过端口发现，直连
-//   SMITHUE_PROJECT=<名>   多实例时按 project_name 子串过滤
+//   SMITHUE_PROJECT=<path or name>   select an exact project
+//   SMITHUE_PID=<n>                 select a unique editor process
+//   SMITHUE_SESSION=<id>            reuse a CLI session binding
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 
 function portDir() {
   if (process.platform === 'win32') {
@@ -33,12 +36,20 @@ function portDir() {
 }
 
 function discover() {
-  if (process.env.SMITHUE_PORT) return { port: Number(process.env.SMITHUE_PORT) };
+  const session = process.env.SMITHUE_SESSION;
+  if (process.env.SMITHUE_PORT) {
+    if (session || process.env.SMITHUE_PID || process.env.SMITHUE_PROJECT) {
+      throw new Error('SMITHUE_PORT cannot be combined with a session, PID or project target.');
+    }
+    const port = Number(process.env.SMITHUE_PORT);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMITHUE_PORT.');
+    return { port };
+  }
   const dir = portDir();
   let files = [];
   try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.port')); } catch { /* no dir */ }
   const want = process.env.SMITHUE_PROJECT;
-  const entries = files
+  let entries = files
     .map((f) => {
       try {
         const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
@@ -47,17 +58,24 @@ function discover() {
       } catch { return null; }
     })
     .filter(Boolean)
-    .filter((e) => (want ? String(e.project_name || '').includes(want) : true));
+    .filter((entry) => !process.env.SMITHUE_PID || entry.pid === Number(process.env.SMITHUE_PID))
+    .filter((entry) => !want || String(entry.project_name || '') === want
+      || path.resolve(entry.project).toLowerCase() === path.resolve(want).toLowerCase());
+  if (session && !want && !process.env.SMITHUE_PID) {
+    const key = createHash('sha256').update(session).digest('hex');
+    let pinned;
+    try { pinned = JSON.parse(fs.readFileSync(path.join(dir, 'sessions', `${key}.json`), 'utf8')).pinned; } catch {}
+    if (!pinned) throw new Error('Session has no editor binding. Bind it with smithue-cli --session <id> --pid <pid> status first.');
+    entries = entries.filter((entry) => entry.pid === pinned.pid && entry.port === pinned.port
+      && path.resolve(entry.project).toLowerCase() === path.resolve(pinned.project).toLowerCase());
+  }
   if (!entries.length) {
     throw new Error(
       `No running SmithUE editor found (port dir: ${dir}). ` +
       `Start UE with the SmithUE plugin, or set SMITHUE_PORT=<n>.`
     );
   }
-  // 最近启动的优先（多实例默认选最新，与 CLI 行为一致）
-  entries.sort((a, b) =>
-    String(b.started_at || '').localeCompare(String(a.started_at || '')) || b._mtime - a._mtime
-  );
+  if (entries.length !== 1) throw new Error('Multiple editors match. Select a unique SMITHUE_PID or bind SMITHUE_SESSION.');
   return entries[0];
 }
 
@@ -113,6 +131,12 @@ async function main() {
   }
   try {
     const inst = discover();
+    const ready = await fetch(`http://127.0.0.1:${inst.port}/ready`, { signal: AbortSignal.timeout(10000) });
+    const identity = await ready.json();
+    if (!identity.ready) throw new Error('Target editor is not ready.');
+    if (inst.pid !== undefined && identity.pid !== undefined && inst.pid !== identity.pid) {
+      throw new Error('Target editor identity mismatch; refusing to execute.');
+    }
     const out = await post(inst.port, command, params);
     process.stdout.write(out);
   } catch (e) {

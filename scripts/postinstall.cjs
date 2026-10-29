@@ -13,9 +13,11 @@
 //   Opt out with SMITHUE_SKILL_NO_AUTOINSTALL=1.
 'use strict';
 
+let release;
 try {
   // Only act on global installs; respect the opt-out.
   if (process.env.npm_config_global === 'true' && process.env.SMITHUE_SKILL_NO_AUTOINSTALL !== '1') {
+    release = require('./maintenance-lock.cjs').acquireMaintenanceLock();
     const fs = require('node:fs');
     const os = require('node:os');
     const path = require('node:path');
@@ -60,4 +62,7 @@ try {
   }
 } catch (_) {
   // A postinstall must never fail the install.
+  console.warn('[smithue-cli] skill deployment skipped; maintenance may be locked. Retry with smithue-cli skill --install <dir>.');
+} finally {
+  if (release) release();
 }

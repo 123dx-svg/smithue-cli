@@ -29,6 +29,7 @@ program
   .option('--pid <pid>', 'target SmithUE instance by PID', parseInt)
   .option('--project <path>', 'target SmithUE instance by project path')
   .option('--port <port>', 'connect directly to port (skip discovery)', parseInt)
+  .option('--session <id>', 'isolate the editor binding for this AI session (or SMITHUE_SESSION)')
   .option('--terse', 'emit minified JSON output')
   .option('--out <file>', 'write result to file instead of stdout')
   .option('--strict', 'require explicit instance selection; error on multiple instances (CI mode)');
@@ -36,6 +37,11 @@ program
 program.hook('preAction', () => {
   const opts = program.opts<{ terse?: boolean; out?: string; strict?: boolean }>();
   setOutputOptions({ terse: opts.terse, outPath: opts.out });
+  const session = program.opts<{ session?: string }>().session;
+  if (session !== undefined) {
+    if (!session.trim()) throw new SmithUEError('--session must not be empty', 1);
+    process.env['SMITHUE_SESSION'] = session;
+  }
   // SMITHUE_STRICT=1 env var acts as global --strict
   if (!opts.strict && process.env['SMITHUE_STRICT'] === '1') {
     program.setOptionValue('strict', true);

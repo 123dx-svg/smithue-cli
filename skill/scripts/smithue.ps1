@@ -12,7 +12,9 @@ Windows 自带的 PowerShell，不需要装 node / npm。
 
 环境变量：
   $env:SMITHUE_PORT      跳过端口发现，直连
-  $env:SMITHUE_PROJECT   多实例时按 project_name 子串过滤
+  $env:SMITHUE_PROJECT   exact project path or name
+  $env:SMITHUE_PID       unique editor process
+  $env:SMITHUE_SESSION   reuse a CLI session binding
 
 说明：<command> 是 exec 工具名（ping / list_assets / get_job_status / move_folder …），
 等价于 `smithue-cli exec <command>`。
@@ -23,28 +25,59 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# ---- 端口发现：读 %LOCALAPPDATA%\.smithue\<pid>.port（选最近启动的）----
+# ---- Discover an unambiguous or session-bound editor ----
 if ($env:SMITHUE_PORT) {
+  if ($env:SMITHUE_SESSION -or $env:SMITHUE_PID -or $env:SMITHUE_PROJECT) {
+    throw 'SMITHUE_PORT cannot be combined with a session, PID or project target.'
+  }
   $port = [int]$env:SMITHUE_PORT
+  if ($port -lt 1 -or $port -gt 65535) { throw 'Invalid SMITHUE_PORT.' }
 }
 else {
   $dir = Join-Path $env:LOCALAPPDATA '.smithue'
   $files = Get-ChildItem $dir -Filter *.port -ErrorAction SilentlyContinue
   $entries = foreach ($f in $files) {
     try {
-      $j = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json
+      $j = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
       $j | Add-Member -NotePropertyName _mtime -NotePropertyValue $f.LastWriteTime -Force
       $j
     } catch {}
   }
   if ($env:SMITHUE_PROJECT) {
-    $entries = $entries | Where-Object { "$($_.project_name)" -like "*$($env:SMITHUE_PROJECT)*" }
+    $entries = $entries | Where-Object {
+      "$($_.project_name)" -eq $env:SMITHUE_PROJECT -or
+      [IO.Path]::GetFullPath($_.project) -eq [IO.Path]::GetFullPath($env:SMITHUE_PROJECT)
+    }
+  }
+  if ($env:SMITHUE_PID) {
+    $entries = $entries | Where-Object { $_.pid -eq [int]$env:SMITHUE_PID }
+  }
+  if ($env:SMITHUE_SESSION -and -not $env:SMITHUE_PID -and -not $env:SMITHUE_PROJECT) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+      $key = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($env:SMITHUE_SESSION))).Replace('-', '').ToLowerInvariant()
+    } finally { $sha.Dispose() }
+    $binding = Join-Path (Join-Path $dir 'sessions') "$key.json"
+    $pinned = (Get-Content -LiteralPath $binding -Raw -Encoding UTF8 | ConvertFrom-Json).pinned
+    if (-not $pinned) { throw 'Session has no editor binding. Explicitly bind a PID or project first.' }
+    $entries = $entries | Where-Object {
+      $_.pid -eq $pinned.pid -and $_.port -eq $pinned.port -and
+      [IO.Path]::GetFullPath($_.project) -eq [IO.Path]::GetFullPath($pinned.project)
+    }
   }
   if (-not $entries) {
     Write-Error "No running SmithUE editor found (port dir: $dir). Start UE with the SmithUE plugin, or set `$env:SMITHUE_PORT."
     exit 1
   }
-  $port = ($entries | Sort-Object { $_.started_at }, _mtime -Descending | Select-Object -First 1).port
+  if (@($entries).Count -ne 1) { throw 'Multiple editors match. Select a unique SMITHUE_PID or bind SMITHUE_SESSION.' }
+  $instance = @($entries)[0]
+  $port = $instance.port
+}
+
+$ready = Invoke-RestMethod -Uri "http://127.0.0.1:$port/ready" -TimeoutSec 10
+if (-not $ready.ready) { throw 'Target editor is not ready.' }
+if ($instance -and $null -ne $ready.pid -and $ready.pid -ne $instance.pid) {
+  throw 'Target editor identity mismatch; refusing to execute.'
 }
 
 # ---- 参数来源：文件路径（UTF-8）或 inline JSON ----

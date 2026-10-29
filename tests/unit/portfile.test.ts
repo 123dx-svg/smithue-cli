@@ -18,6 +18,7 @@ vi.mock('../../src/proc.js', () => ({
 vi.mock('../../src/registry.js', () => ({
   getMostRecent: vi.fn(),
   getPinned: vi.fn(),
+  setPinned: vi.fn(),
   updateLastUsed: vi.fn(),
 }));
 
@@ -116,6 +117,7 @@ beforeEach(() => {
   process.env['LOCALAPPDATA'] = 'C:/Users/test/AppData/Local';
   delete process.env['SMITHUE_PORT'];
   delete process.env['SMITHUE_PID'];
+  delete process.env['SMITHUE_SESSION'];
   vi.clearAllMocks();
 });
 
@@ -128,6 +130,50 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('discoverPort', () => {
+  it('does not ignore a project constraint when PID is also supplied', async () => {
+    setupTwoPortfiles();
+    await expect(discoverPort({ pid: pf1.pid, project: pf2.project })).rejects.toMatchObject({ exitCode: 2 });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a recycled port that now belongs to another PID', async () => {
+    setupSinglePortfile();
+    mockFetch.mockResolvedValue({ json: async () => ({ ready: true, pid: pf2.pid }) });
+    await expect(discoverPort({ pid: pf1.pid })).rejects.toThrow('identity mismatch');
+  });
+
+  it('requires an explicit initial target for a session, even with one editor', async () => {
+    setupSinglePortfile();
+    process.env['SMITHUE_SESSION'] = 'session-a';
+    mockGetPinned.mockResolvedValue(undefined);
+    await expect(discoverPort()).rejects.toThrow('no editor binding');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('uses the session binding instead of global recent history', async () => {
+    setupTwoPortfiles();
+    process.env['SMITHUE_SESSION'] = 'session-a';
+    mockGetPinned.mockResolvedValue({ ...pf1, projectId: `id:${pf1.project}`, lastConnectedAt: '' });
+    await expect(discoverPort()).resolves.toMatchObject({ pid: pf1.pid, selection_mode: 'pinned' });
+    expect(mockGetMostRecent).not.toHaveBeenCalled();
+  });
+
+  it('never falls back to a different editor after the bound editor exits', async () => {
+    setupSinglePortfile(pf2);
+    process.env['SMITHUE_SESSION'] = 'session-a';
+    mockGetPinned.mockResolvedValue({ ...pf1, projectId: `id:${pf1.project}`, lastConnectedAt: '' });
+    await expect(discoverPort()).rejects.toThrow('no fallback');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('binds an explicit project and does not let SMITHUE_PORT override it', async () => {
+    setupTwoPortfiles();
+    process.env['SMITHUE_SESSION'] = 'session-a';
+    process.env['SMITHUE_PORT'] = '19999';
+    await expect(discoverPort({ project: pf1.project })).resolves.toMatchObject({ pid: pf1.pid });
+    expect(registry.setPinned).toHaveBeenCalledWith(expect.objectContaining({ pid: pf1.pid }));
+  });
+
   // ── SMITHUE_PORT override ─────────────────────────────────────────────────
   describe('SMITHUE_PORT env override', () => {
     it('returns port from env without reading portfiles', async () => {
@@ -224,7 +270,7 @@ describe('discoverPort', () => {
 
   // ── Multi-instance error ──────────────────────────────────────────────────
   describe('multi-instance (2 portfiles, no filter)', () => {
-    it('selects most recent instance when strict is false', async () => {
+    it('rejects ambiguous targets even when global recent history exists', async () => {
       setupTwoPortfiles();
       mockGetMostRecent.mockResolvedValue({
         projectId: `id:${pf2.project}`,
@@ -237,14 +283,9 @@ describe('discoverPort', () => {
       mockGetPinned.mockResolvedValue(undefined);
       mockFetch.mockResolvedValue(okResponse());
 
-      const result = await discoverPort({});
-      expect(result.pid).toBe(pf2.pid);
-      expect(result.port).toBe(pf2.port);
-      expect(result.selection_mode).toBe('most-recent');
-      expect(mockFetch).toHaveBeenCalledWith(
-        `http://127.0.0.1:${pf2.port}/ready`,
-        expect.objectContaining({ signal: expect.anything() }),
-      );
+      await expect(discoverPort({})).rejects.toMatchObject({ exitCode: 1 });
+      expect(mockGetMostRecent).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('throws SmithUEError exitCode 1 when strict is true', async () => {

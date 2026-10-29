@@ -15,6 +15,7 @@
     "schemas/",
     "skill/",
     "scripts/postinstall.cjs",
+    "scripts/maintenance-lock.cjs",
     "package.json",
     "README.md"
   ],

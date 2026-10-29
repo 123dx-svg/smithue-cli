@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add `--session` / `SMITHUE_SESSION` with separate editor bindings. Ambiguous targets and unavailable bound editors fail closed; global recent history no longer selects a write target. `use` now requires a session.
+- Respect explicit project selection over environment port defaults, validate compound PID/project constraints, and check PID identity from updated plugins' readiness responses.
+- Share an atomic user-level maintenance lock with updated plugins across `upgrade`, `skill --install`, and npm postinstall. Delegate lock ownership to npm children and protect locks from `purge --force`.
+- Apply the same unambiguous routing policy to the skill's Node and PowerShell fallback scripts; update agent instructions to keep a stable per-conversation session ID.
+- Add process-level lock tests, isolated session tests, fallback-script regressions, and a real two-editor verification script. Forced CLI termination may require verified manual stale-lock cleanup.
+
 ## v0.15.1 — 精简 SKILL 描述
 
 ### Changed

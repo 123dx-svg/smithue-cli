@@ -11,6 +11,9 @@ export interface UseOpts {
 
 export async function useCommand(opts: UseOpts): Promise<void> {
   try {
+    if (!process.env['SMITHUE_SESSION']) {
+      throw new SmithUEError('use requires --session <id> or SMITHUE_SESSION; global target switching is not allowed.', 1);
+    }
     if (opts.clear) {
       await getPinned();
       await clearPinned();
@@ -28,14 +31,18 @@ export async function useCommand(opts: UseOpts): Promise<void> {
     const dir = getPortfileDir();
     const all = await readPortfiles(dir);
 
-    const candidate = all.find((c) => {
-      if (opts.pid !== undefined) return c.data.pid === opts.pid;
+    const candidates = all.filter((c) => {
+      if (opts.pid !== undefined && c.data.pid !== opts.pid) return false;
       if (opts.project !== undefined) {
-        return c.data.project === opts.project || c.data.project_name === opts.project;
+        return projectId(c.data.project) === projectId(opts.project) || c.data.project_name === opts.project;
       }
-      return false;
+      return opts.pid !== undefined;
     });
 
+    if (candidates.length > 1) {
+      throw new SmithUEError('Multiple editors match this project. Select a unique --pid.', 1);
+    }
+    const candidate = candidates[0];
     if (!candidate) {
       throw new SmithUEError(
         opts.pid !== undefined

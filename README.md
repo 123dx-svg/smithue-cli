@@ -73,11 +73,56 @@ Supported commands: `status`, `list`, `search`. Sequential execution only.
 
 ## Upgrading
 
+### Multiple Editors and AI Sessions
+
+Use a unique, stable session ID for each AI conversation. Bind its first call to
+an absolute project path or an editor PID, then keep the same session ID on every call:
+
+```powershell
+smithue-cli --session assistant-a --project "C:/Projects/GameA/GameA.uproject" status
+smithue-cli --session assistant-b --project "C:/Projects/GameB/GameB.uproject" status
+smithue-cli --session assistant-a exec ping
+smithue-cli --session assistant-b exec ping
+```
+
+`SMITHUE_SESSION` is equivalent to `--session` when set in a session-specific
+process environment. Bindings live in separate hashed files under
+`%LOCALAPPDATA%/.smithue/sessions`. Multiple editors without an explicit target or
+session binding are an error; global recent history is never a routing fallback.
+An exited bound editor causes an error even if another editor is available.
+Rebind explicitly after restarting it. `use` requires a session ID; `--port`
+cannot be combined with a session binding. If multiple editors open the same
+project, select a unique PID.
+
+Updated plugins allocate independent ports by default and fall back to an
+OS-assigned port if a configured fixed port is occupied. Update the plugin in
+every participating project; older plugin builds do not implement this policy.
+
+Managed CLI upgrades, skill installs, and updated plugin installs share
+`%LOCALAPPDATA%/.smithue/maintenance.lock`. Lock acquisition is nonblocking;
+retry after another owner completes. npm postinstall inherits its installer's
+ownership. Editor locks are removed by Windows when the process exits; CLI
+locks are removed on normal completion/exit. A forcibly terminated CLI can
+leave an abandoned lock: verify its recorded PID is dead before manual removal.
+Direct `npm install/update` bypasses the outer upgrade lock; use the managed
+upgrade command when editors are active. Its postinstall protects skill copying,
+not npm's own earlier package writes.
+
+For a read-only two-editor verification (requires a built CLI and UE5.2):
+
+```powershell
+node scripts/verify-multi-instance.mjs "<EngineRoot>/Engine/Binaries/Win64/UnrealEditor.exe" "<ProjectRoot>/<Project>.uproject" "<ProjectRoot>/Plugins/SmithUE"
+```
+
+The verifier creates a temporary second project, requests the same fixed port
+for both instances, checks session isolation and fail-closed routing, and stops
+only the editors it launched.
+
 ```bash
 smithue-cli upgrade
 ```
 
-Updates `smithue-cli` to the latest version via npm. A warning is printed to stderr if the CLI version does not match the plugin version.
+Updates `smithue-cli` via npm under the shared maintenance lock. CLI and plugin versions are independent.
 
 ## AI Agent Integration
 

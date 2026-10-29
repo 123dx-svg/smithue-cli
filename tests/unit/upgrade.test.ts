@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+vi.mock('../../src/maintenance.js', () => ({
+  acquireMaintenanceLock: vi.fn(() => vi.fn()),
+}));
+
 vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
 }));
